@@ -21,7 +21,7 @@ int main(int argc, const char * argv[]) {
         // You need to change the path file: /Users/nha2/Downloads/Proj1_part1_2/Proj1_part1_2/ to your local directory
        
        // Mac
-       // Image inputImage = readImage("/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/car.ppm");
+    //    Image inputImage = readImage("/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/car.ppm");
        
        // PC
        Image inputImage = readImage("/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/project1/netpbm/car.ppm");
@@ -40,6 +40,7 @@ int main(int argc, const char * argv[]) {
                invertedImage.map[y][x].b = 255 - inputImage.map[y][x].b;
                // Let's just ignore 'i' here; it's irrelevant if we want to save image as PPM.
            }
+
        // Mac
     //    writeImage(rotatedImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/rotated.pbm");
     //    writeImage(invertedImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/inverted.pbm");
