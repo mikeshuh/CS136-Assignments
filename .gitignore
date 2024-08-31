@@ -1,2 +1,6 @@
+# Ignore Windows .exe files
 *.exe
-*.exec
+
+# Ignore Unix executables (files without extensions)
+# This will match files without any dot in their name
+*.[!.]*
