@@ -21,10 +21,10 @@ int main(int argc, const char * argv[]) {
         // You need to change the path file: /Users/nha2/Downloads/Proj1_part1_2/Proj1_part1_2/ to your local directory
        
        // Mac
-    //    Image inputImage = readImage("/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/car.ppm");
+    //    Image inputImage = readImage("/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/car.ppm");
        
        // PC
-       Image inputImage = readImage("/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/project1/netpbm/car.ppm");
+       Image inputImage = readImage("/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/car.ppm");
 
        //-------------------------------------------------------------------------------
        // COMMENT THIS FUNCTION IF YOU DON'T WANT IT TO RUN EVEY TIME
@@ -42,16 +42,16 @@ int main(int argc, const char * argv[]) {
            }
 
        // Mac
-    //    writeImage(rotatedImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/rotated.pbm");
-    //    writeImage(invertedImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/inverted.pbm");
-    //    writeImage(inputImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/gray.pgm");
-    //    writeImage(inputImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/project1/netpbm/black-white.pbm");
+    //    writeImage(rotatedImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/rotated.pbm");
+    //    writeImage(invertedImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/inverted.pbm");
+    //    writeImage(inputImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/gray.pgm");
+    //    writeImage(inputImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/black-white.pbm");
 
        // PC
-       writeImage(rotatedImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/project1/netpbm/rotated.pbm");
-       writeImage(invertedImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/project1/netpbm/inverted.pbm");
-       writeImage(inputImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/project1/netpbm/gray.pgm");
-       writeImage(inputImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/project1/netpbm/black-white.pbm");
+       writeImage(rotatedImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/rotated.pbm");
+       writeImage(invertedImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/inverted.pbm");
+       writeImage(inputImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/gray.pgm");
+       writeImage(inputImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/black-white.pbm");
 
     //-------------------------------------------------------------------------------
        //create blackWhiteImage:
