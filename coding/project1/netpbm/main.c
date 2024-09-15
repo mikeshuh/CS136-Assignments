@@ -5,12 +5,17 @@
 //  Created by nha2 on 8/27/24.
 // Test and demo program for netpbm. Reads a sample image and creates several output images.
 
+// Mac
+#define PATH "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/"
+
+// PC
+// #define PATH "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include "netpbm.h"
-#include <stdio.h>
 
 // added
 #include <time.h>
@@ -27,12 +32,8 @@ int main(int argc, const char * argv[]) {
     //-------------------------------------------------------------------------------
        //create blackWhiteImage:
         // You need to change the path file: /Users/nha2/Downloads/Proj1_part1_2/Proj1_part1_2/ to your local directory
-       
-       // Mac
-    //    Image inputImage = readImage("/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/car.ppm");
-       
-       // PC
-      //  Image inputImage = readImage("/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/car.ppm");
+
+      //  Image inputImage = readImage(PATH "car.ppm");
 
        //-------------------------------------------------------------------------------
        // COMMENT THIS FUNCTION IF YOU DON'T WANT IT TO RUN EVEY TIME
@@ -49,26 +50,19 @@ int main(int argc, const char * argv[]) {
    //             // Let's just ignore 'i' here; it's irrelevant if we want to save image as PPM.
    //         }
 
-       // Mac
-    //    writeImage(rotatedImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/rotated.pbm");
-    //    writeImage(invertedImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/inverted.pbm");
-    //    writeImage(inputImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/gray.pgm");
-    //    writeImage(inputImage, "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/black-white.pbm");
-
-       // PC
-      //  writeImage(rotatedImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/rotated.pbm");
-      //  writeImage(invertedImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/inverted.pbm");
-      //  writeImage(inputImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/gray.pgm");
-      //  writeImage(inputImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/black-white.pbm");
+      //  writeImage(rotatedImage, PATH "rotated.pbm");
+      //  writeImage(invertedImage, PATH "inverted.pbm");
+      //  writeImage(inputImage, PATH "gray.pgm");
+      //  writeImage(inputImage, PATH "black-white.pbm");
 
     //-------------------------------------------------------------------------------
 
       // inputImage (read from file)
-      Image inputImage = readImage("/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/text_image.ppm");
+      Image inputImage = readImage(PATH "text_image.ppm");
 
       // blackWhiteImage
       Image blackWhiteTextImage = toBlackWhite(inputImage, 128);
-      writeImage(blackWhiteTextImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/black-white.pbm");
+      writeImage(blackWhiteTextImage, PATH "black-white.pbm");
 
       // Denoise
       // S = shrink; E = Expand
@@ -90,20 +84,21 @@ int main(int argc, const char * argv[]) {
          Image cleanedTextImageESSE_b4 = expand4(shrink4(shrink4(expand4(blackWhiteTextImage))));
 
       // Write to files
-      writeImage(cleanedTextImageSEES, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/image_cleaned_SEES.pbm");
-      writeImage(cleanedTextImageESSE, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/image_cleaned_ESSE.pbm");
-      writeImage(cleanedTextImageSEES_s4, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/image_cleaned_SEES_s4.pbm");
-      writeImage(cleanedTextImageESSE_s4, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/image_cleaned_ESSE_s4.pbm");
-      writeImage(cleanedTextImageSEES_e4, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/image_cleaned_SEES_e4.pbm");
-      writeImage(cleanedTextImageESSE_e4, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/image_cleaned_ESSE_e4.pbm");
-      writeImage(cleanedTextImageSEES_b4, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/image_cleaned_SEES_b4.pbm");
-      writeImage(cleanedTextImageESSE_b4, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/image_cleaned_ESSE_b4.pbm");
+      writeImage(cleanedTextImageSEES, PATH "image_cleaned_SEES.pbm");
+      writeImage(cleanedTextImageESSE, PATH "image_cleaned_ESSE.pbm");
+      writeImage(cleanedTextImageSEES_s4, PATH "image_cleaned_SEES_s4.pbm");
+      writeImage(cleanedTextImageESSE_s4, PATH "image_cleaned_ESSE_s4.pbm");
+      writeImage(cleanedTextImageSEES_e4, PATH "image_cleaned_SEES_e4.pbm");
+      writeImage(cleanedTextImageESSE_e4, PATH "image_cleaned_ESSE_e4.pbm");
+      writeImage(cleanedTextImageSEES_b4, PATH "image_cleaned_SEES_b4.pbm");
+      writeImage(cleanedTextImageESSE_b4, PATH "image_cleaned_ESSE_b4.pbm");
 
       // best res: sees_b4
+      writeImage(cleanedTextImageSEES_b4, PATH "image_cleaned.pbm");
 
       // Create noisedImage and write to files
       Image noisedImage = noiseImage(cleanedTextImageSEES_b4, 5.0f);
-      writeImage(noisedImage, "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/noise.pbm");
+      writeImage(noisedImage, PATH "noise.pbm");
 
        //-------------------------------------------------------------------------------
        // Uncomment this after you finish your homework
