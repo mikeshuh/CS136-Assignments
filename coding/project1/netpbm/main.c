@@ -6,10 +6,10 @@
 // Test and demo program for netpbm. Reads a sample image and creates several output images.
 
 // Mac
-// #define PATH "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/"
+#define PATH "/Users/michaelhuh/Documents/SJSU/24-25/FA_24/CS-136_comp-vision/CS136-Assignments/coding/project1/netpbm/"
 
 // PC
-#define PATH "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/"
+// #define PATH "/Users/mshuh/SJSU/FA24/CS136-CompVision/Assignments/coding/project1/netpbm/"
 
 #include <stdio.h>
 #include <stdlib.h>
