@@ -43,7 +43,7 @@ int main(int argc, const char * argv[]) {
     Image inputImage = readImage("text_image.ppm");
 
     // to blackWhiteImage; intensity threshold = 128
-    Image blackWhiteImage = function_imageBlackWhite(inputImage, 128);
+    Image blackWhiteImage = function_imageBlackWhite(inputImage, 200);
 
     // denoise; shrink-expand-expand-shrink
     Image cleanedImage = shrink(expand(expand(shrink(blackWhiteImage))));
