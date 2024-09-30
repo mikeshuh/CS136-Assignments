@@ -29,6 +29,7 @@
 #define MEDIAN_FILTER_WIDTH 5
 
 // function prototypes
+void printMatrix(const Matrix *);
 Matrix smoothing_filter(Matrix, Matrix);
 Matrix median_filter(Matrix, Matrix);
 
@@ -43,17 +44,32 @@ int main(int argc, const char *argv[]) {
     // input img w noise -> matrix
     Matrix inputNoiseMatrix = image2Matrix(inputNoiseImage);
 
-    //---------------------------------------------------------------------smoothing/averaging filter------------------------------------------------------------------
+    //---------------------------------------------------------------------smoothing filter-----------------------------------------------------------------------------
 
-    Matrix smoothingFilter = createMatrix(SMOOTHING_FILTER_HEIGHT, SMOOTHING_FILTER_WIDTH);
-    printf("Smoothing Filter: %d x %d\n", SMOOTHING_FILTER_HEIGHT, SMOOTHING_FILTER_WIDTH);
+        // 5x5 discrete gaussian filter
+        // double smoothingFilterArray[SMOOTHING_FILTER_HEIGHT][SMOOTHING_FILTER_WIDTH] = {{(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273},
+        //                                                                                 {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
+        //                                                                                 {(double)7/273, (double)26/273, (double)41/273, (double)26/273, (double)7/273},
+        //                                                                                 {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
+        //                                                                                 {(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273}};
+
+        // 5x5 averaging filter
+        double smoothingFilterArray[SMOOTHING_FILTER_HEIGHT][SMOOTHING_FILTER_WIDTH] = {{(double)1/25, (double)1/25, (double)1/25, (double)1/25, (double)1/25},
+                                                                                        {(double)1/25, (double)1/25, (double)1/25, (double)1/25, (double)1/25},
+                                                                                        {(double)1/25, (double)1/25, (double)1/25, (double)1/25, (double)1/25},
+                                                                                        {(double)1/25, (double)1/25, (double)1/25, (double)1/25, (double)1/25},
+                                                                                        {(double)1/25, (double)1/25, (double)1/25, (double)1/25, (double)1/25}};
+
+        Matrix smoothingFilter = createMatrixFromArray(&smoothingFilterArray[0][0], SMOOTHING_FILTER_HEIGHT, SMOOTHING_FILTER_WIDTH);
+        printf("Smoothing Filter: %d x %d\n", SMOOTHING_FILTER_HEIGHT, SMOOTHING_FILTER_WIDTH);
+        printMatrix(&smoothingFilter);
 
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     //-------------------------------------------------------------------median filter---------------------------------------------------------------------------------
 
-    Matrix medianFilter = createMatrix(MEDIAN_FILTER_HEIGHT, MEDIAN_FILTER_WIDTH);
-    printf("Median Filter: %d x %d\n", MEDIAN_FILTER_HEIGHT, MEDIAN_FILTER_WIDTH);
+        Matrix medianFilter = createMatrix(MEDIAN_FILTER_HEIGHT, MEDIAN_FILTER_WIDTH);
+        printf("Median Filter: %d x %d\n", MEDIAN_FILTER_HEIGHT, MEDIAN_FILTER_WIDTH);
 
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -87,33 +103,54 @@ int main(int argc, const char *argv[]) {
     return 0;
 }
 
+//---------------------------------------------print matrix----------------------------------------------------------
+
+void printMatrix(const Matrix *m) {
+    for (int i = 0; i < m->height; i++) {
+        for (int j = 0; j < m->width; j++) {
+            printf("%f ", m->map[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
 //----------------------------------------------smoothing filter------------------------------------------------------
+
+// rotate matrix helper function for smoothing convolution filter
+Matrix createRotatedMatrix180(const Matrix *m) {
+    Matrix rotatedMatrix = createMatrix(m->height, m->width);
+    for (int i = 0; i < m->height; i++) {
+        for (int j = 0; j < m->width; j++) {
+            rotatedMatrix.map[i][j] = m->map[m->height - i - 1][m->width - j - 1];
+        }
+    }
+    return rotatedMatrix;
+}
 
 // m1 input img matrix; m2 filter matrix
 Matrix smoothing_filter(Matrix m1, Matrix m2) {
     Matrix smoothedMatrix = createMatrix(m1.height, m1.width);      // result matrix
-    int filterSize = m2.height * m2.width;                          // size of filter matrix
-    
-    // coordinates of filter anchor
-    int yFilterAnchor = (m2.height - 1) / 2;
-    int xFilterAnchor = (m2.width - 1) / 2;
+    Matrix rotatedFilter = createRotatedMatrix180(&m2);             // filter rotated
 
     // iterate over img matrix
     for (int i = 0; i < m1.height - m2.height + 1; i++) {
         for (int j = 0; j < m1.width - m2.width + 1; j++) {
             double sum = 0;
 
-            // itereate over filter; keep track of sum
+            // itereate over rotated filter; keep track of sum
             for (int k = 0; k < m2.height; k++) {
                 for (int l = 0; l < m2.width; l++) {
-                    sum += m1.map[i + k][j + l];
+                    sum += m1.map[i + k][j + l] * rotatedFilter.map[k][l];
                 }
             }
 
             // store sum in result matrix
-            smoothedMatrix.map[i + yFilterAnchor][j + xFilterAnchor] = sum / filterSize;
+            smoothedMatrix.map[i + (m2.height - 1) / 2][j + (m2.width - 1) / 2] = sum;
         }
     }
+
+    deleteMatrix(rotatedFilter);    // free memory
 
     return smoothedMatrix;
 }
@@ -145,12 +182,9 @@ double sortAndGetMedian(double *filterArr, int filterSize){
 // m1 input image matrix; m2 filter matrix
 Matrix median_filter(Matrix m1, Matrix m2) {
     Matrix medianFilteredImage = createMatrix(m1.height, m1.width);     // result matrix
+
     int filterSize = m2.height * m2.width;                                  // size of filter
     double *filterArr = (double *)malloc(filterSize * sizeof(double));      // filter array
-
-    // coordinates of filter anchor
-    int yFilterAnchor = (m2.height - 1) / 2;
-    int xFilterAnchor = (m2.width - 1) / 2;
 
     // iterate over img matrix
     for (int i = 0; i < m1.height - m2.height + 1; i++) {
@@ -165,7 +199,7 @@ Matrix median_filter(Matrix m1, Matrix m2) {
             }
 
             // get median and store in result matrix
-            medianFilteredImage.map[i + yFilterAnchor][j + xFilterAnchor] = sortAndGetMedian(filterArr, filterSize);
+            medianFilteredImage.map[i + (m2.height - 1) / 2][j + (m2.width - 1) / 2] = sortAndGetMedian(filterArr, filterSize);
         }
     }
 
