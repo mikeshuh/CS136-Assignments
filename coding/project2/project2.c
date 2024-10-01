@@ -110,7 +110,7 @@ Matrix smoothing_filter(Matrix m1, Matrix m2) {
                 }
             }
 
-            // store sum in result matrix
+            // store avg in result matrix
             smoothedMatrix.map[i + yFilterAnchor][j + xFilterAnchor] = sum / filterSize;
         }
     }
