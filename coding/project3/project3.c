@@ -51,7 +51,7 @@ int main(int argc, const char *argv[]) {
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     // apply convolution filter to input matrix
-    Matrix convolvedMatrix = convolve(convolve(convolve(convolve(inputMatrix, convolutionFilter), convolutionFilter), convolutionFilter), convolutionFilter);
+    Matrix convolvedMatrix = convolve(inputMatrix, convolutionFilter);
     // convert convolved matrix to img
     Image convolvedImage = matrix2Image(convolvedMatrix, 1, 1);
 
@@ -168,15 +168,12 @@ Image sobel(Image img) {
     Matrix inputImgMatrix = image2Matrix(img);
 
     Matrix sobelFilteredMatrix = convolve(convolve(inputImgMatrix, iSobelFilter), jSobelFilter);
-    Image sobelFilteredImg = matrix2Image(sobelFilteredMatrix, 0, 1);
-
-    // Image thresholdSobelFilteredImg = function_imageBlackWhite(sobelFilteredImg, 170);
+    Image sobelFilteredImg = matrix2Image(sobelFilteredMatrix, 1, 1);
 
     deleteMatrix(iSobelFilter);
     deleteMatrix(jSobelFilter);
     deleteMatrix(inputImgMatrix);
     deleteMatrix(sobelFilteredMatrix);
-    // deleteImage(sobelFilteredImg);
 
     return sobelFilteredImg;
 }
