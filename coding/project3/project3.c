@@ -5,7 +5,7 @@
 // project3
 // 
 // created by Michael Huh 9/30/24
-// last modified 9/30/24
+// last modified 10/4/24
 // 
 // compile:
 // gcc -o main project3.c netpbm.c
@@ -28,6 +28,7 @@
 void printMatrix(const Matrix *);
 Matrix convolve(Matrix, Matrix);
 Image sobel(Image);
+Image canny(Image);
 
 int main(int argc, const char *argv[]) {
     // input img
@@ -45,7 +46,7 @@ int main(int argc, const char *argv[]) {
                                                                                         {(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273}};
 
     Matrix convolutionFilter = createMatrixFromArray(&gaussianFilterArray[0][0], CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
-    printf("Convolution Filter: %d x %d\n", CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
+    printf("\nConvolution Filter: %d x %d\n", CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
     printMatrix(&convolutionFilter);
 
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -61,6 +62,9 @@ int main(int argc, const char *argv[]) {
     Image sobelFilteredImage = sobel(convolvedImage);
     writeImage(sobelFilteredImage, "sobeltest.pgm");
 
+    Image cannyFilteredImage = canny(convolvedImage);
+    writeImage(cannyFilteredImage, "cannytest.pgm");
+
 
     // free memory; delete imgs and matricies
     deleteImage(inputImage);
@@ -69,6 +73,7 @@ int main(int argc, const char *argv[]) {
     deleteMatrix(convolvedMatrix);
     deleteImage(convolvedImage);
     deleteImage(sobelFilteredImage);
+    deleteImage(cannyFilteredImage);
 
     printf("\nProgram ends ...");
     return 0;
@@ -108,6 +113,11 @@ Image function_imageBlackWhite(Image img, int intensityThreshold) {
         }
     }
    return bwImg;
+}
+
+double threshold(double *intensity, double *intensityThreshold) {
+    double i = (intensity <= intensityThreshold) ? 0 : 255;
+    return i;
 }
 
 //----------------------------------------------convolution filter------------------------------------------------------
@@ -156,6 +166,21 @@ Matrix convolve(Matrix m1, Matrix m2) {
 
 //------------------------------------------------sobel filter-----------------------------------------------------
 
+Matrix gradientMagnitudeAndThreshold(Matrix *iSobelFilteredMatrix, Matrix *jSobelFilteredMatrix) {
+    Matrix gradientMagnitudeMatrix = createMatrix(iSobelFilteredMatrix->height, iSobelFilteredMatrix->width);
+
+    for (int i = 0; i < gradientMagnitudeMatrix.height; i++) {
+        for (int j = 0; j < gradientMagnitudeMatrix.width; j++) {
+            double gradientMagnitude = sqrt(pow(iSobelFilteredMatrix->map[i][j], 2) + pow(jSobelFilteredMatrix->map[i][j], 2));
+            // double gradientAngle = (PI / 2 + atan(iSobelFilteredMatrix->map[i][j]/jSobelFilteredMatrix->map[i][j])) * 255 / PI;
+            // gradientMagnitudeMatrix.map[i][j] = threshold(&gradientMagnitude, &gradientAngle);
+            gradientMagnitudeMatrix.map[i][j] = gradientMagnitude;
+        }
+    }
+
+    return gradientMagnitudeMatrix;
+}
+
 Image sobel(Image img) {
     double iSobelArr[3][3] = {{1, 2, 1},
                                 {0, 0, 0},
@@ -167,13 +192,51 @@ Image sobel(Image img) {
     Matrix jSobelFilter = createMatrixFromArray(&jSobelArr[0][0], 3, 3);
     Matrix inputImgMatrix = image2Matrix(img);
 
-    Matrix sobelFilteredMatrix = convolve(convolve(inputImgMatrix, iSobelFilter), jSobelFilter);
-    Image sobelFilteredImg = matrix2Image(sobelFilteredMatrix, 1, 1);
+    Matrix iSobelFilteredMatrix = convolve(inputImgMatrix, iSobelFilter);
+    Matrix jSobelFilteredMatrix = convolve(inputImgMatrix, jSobelFilter);
+
+    Matrix gradientMagnitudeMatrix = gradientMagnitudeAndThreshold(&iSobelFilteredMatrix, &jSobelFilteredMatrix);
+
+    Image sobelFilteredImg = matrix2Image(gradientMagnitudeMatrix, 1, 1);
+
+    Image thresholdedSobelFilteredImg = function_imageBlackWhite(sobelFilteredImg, 60);
 
     deleteMatrix(iSobelFilter);
     deleteMatrix(jSobelFilter);
+    deleteMatrix(iSobelFilteredMatrix);
+    deleteMatrix(jSobelFilteredMatrix);
     deleteMatrix(inputImgMatrix);
-    deleteMatrix(sobelFilteredMatrix);
+    deleteMatrix(gradientMagnitudeMatrix);
+    deleteImage(sobelFilteredImg);
 
-    return sobelFilteredImg;
+    return thresholdedSobelFilteredImg;
 }
+
+//--------------------------------------------------canny filter-------------------------------------------------------------
+
+Image canny(Image img) {
+    double pCannyArr[2][2] = {{0.5, 0.5},
+                                {-0.5, -0.5}};
+    double qCannyArr[2][2] = {{0.5, -0.5},
+                                {0.5, -0.5}};
+    Matrix pCannyFilter = createMatrixFromArray(&pCannyArr[0][0], 2, 2);
+    Matrix qCannyFilter = createMatrixFromArray(&qCannyArr[0][0], 2, 2);
+    Matrix inputImgMatrix = image2Matrix(img);
+
+    Matrix pCannyFilteredMatrix = convolve(inputImgMatrix, pCannyFilter);
+    Matrix qCannyFitleredMatrix = convolve(inputImgMatrix, qCannyFilter);
+
+    Matrix gradientMagnitudeMatrix = gradientMagnitudeAndThreshold(&pCannyFilteredMatrix, &qCannyFitleredMatrix);
+
+    Image cannyFilteredImg = matrix2Image(gradientMagnitudeMatrix, 1, 1);
+
+    deleteMatrix(pCannyFilter);
+    deleteMatrix(qCannyFilter);
+    deleteMatrix(inputImgMatrix);
+    deleteMatrix(pCannyFilteredMatrix);
+    deleteMatrix(qCannyFitleredMatrix);
+    deleteMatrix(gradientMagnitudeMatrix);
+
+    return cannyFilteredImg;
+}
+
