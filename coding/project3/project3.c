@@ -5,7 +5,7 @@
 // project3
 // 
 // created by Michael Huh 9/30/24
-// last modified 10/4/24
+// last modified 10/9/24
 // 
 // compile:
 // gcc -o main project3.c netpbm.c
@@ -45,37 +45,36 @@ int main(int argc, const char *argv[]) {
                                                                                         {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
                                                                                         {(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273}};
 
-    Matrix convolutionFilter = createMatrixFromArray(&gaussianFilterArray[0][0], CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
-    printf("\nConvolution Filter: %d x %d\n", CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
-    printMatrix(&convolutionFilter);
+    Matrix gaussianFilter = createMatrixFromArray(&gaussianFilterArray[0][0], CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
+    printf("\nGaussian Filter: %d x %d\n", CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
+    printMatrix(&gaussianFilter);
 
     //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    // apply convolution filter to input matrix
-    Matrix convolvedMatrix = convolve(inputMatrix, convolutionFilter);
-    // convert convolved matrix to img
-    Image convolvedImage = matrix2Image(convolvedMatrix, 1, 1);
+    // gaussian smooth input matrix
+    Matrix smoothedMatrix = convolve(inputMatrix, gaussianFilter);
+    // convert smoothed matrix to img
+    Image smoothedImage = matrix2Image(smoothedMatrix, 1, 1);
 
-    // write convolved img to files
-    writeImage(convolvedImage, "convolved_image.pgm");
+    // write smoothed img to files
+    writeImage(smoothedImage, "smoothed_image.pgm");
 
-    Image sobelFilteredImage = sobel(convolvedImage);
+    Image sobelFilteredImage = sobel(smoothedImage);
     writeImage(sobelFilteredImage, "sobeltest.pgm");
 
-    Image cannyFilteredImage = canny(convolvedImage);
+    Image cannyFilteredImage = canny(smoothedImage);
     writeImage(cannyFilteredImage, "cannytest.pgm");
-
 
     // free memory; delete imgs and matricies
     deleteImage(inputImage);
     deleteMatrix(inputMatrix);
-    deleteMatrix(convolutionFilter);
-    deleteMatrix(convolvedMatrix);
-    deleteImage(convolvedImage);
+    deleteMatrix(gaussianFilter);
+    deleteMatrix(smoothedMatrix);
+    deleteImage(smoothedImage);
     deleteImage(sobelFilteredImage);
     deleteImage(cannyFilteredImage);
 
-    printf("\nProgram ends ...");
+    printf("Program ends ...\n");
     return 0;
 }
 
@@ -97,7 +96,7 @@ void printMatrix(const Matrix *m) {
  or white (intensity = 255). The function should return an Image structure
  containing the result. */
 
-Image function_imageBlackWhite(Image img, int intensityThreshold) {
+Image function_imageBlackWhite(Image img, double intensityThreshold) {
     // create new img
     Image bwImg = createImage(img.height, img.width);
 
@@ -115,14 +114,9 @@ Image function_imageBlackWhite(Image img, int intensityThreshold) {
    return bwImg;
 }
 
-double threshold(double *intensity, double *intensityThreshold) {
-    double i = (intensity <= intensityThreshold) ? 0 : 255;
-    return i;
-}
+//----------------------------------------------convolve------------------------------------------------------
 
-//----------------------------------------------convolution filter------------------------------------------------------
-
-// rotate matrix helper function for convolution filter
+// rotate matrix helper function for convolve
 Matrix createRotatedMatrix180(const Matrix *m) {
     Matrix rotatedMatrix = createMatrix(m->height, m->width);
     for (int i = 0; i < m->height; i++) {
@@ -164,33 +158,38 @@ Matrix convolve(Matrix m1, Matrix m2) {
     return convolvedMatrix;
 }
 
-//------------------------------------------------sobel filter-----------------------------------------------------
+//----------------------------------------gradient mag and orientation--------------------------------------------
 
-Matrix **gradientMagnitudeAndOrientation(Matrix *iSobelFilteredMatrix, Matrix *jSobelFilteredMatrix, int height, int width) {
-    // Allocate memory for the array of Matrix pointers
-    Matrix **gradientMagnitudeAndOrientation = (Matrix **)malloc(2 * sizeof(Matrix *));
-    gradientMagnitudeAndOrientation[0] = (Matrix *)malloc(sizeof(Matrix));
-    gradientMagnitudeAndOrientation[1] = (Matrix *)malloc(sizeof(Matrix));
+typedef struct {
+    Matrix gradientMagnitudeMatrix;
+    Matrix gradientOreintationMatrix;
+} Gradient;
 
-    // Create the matrices
-    *gradientMagnitudeAndOrientation[0] = createMatrix(height, width);
-    *gradientMagnitudeAndOrientation[1] = createMatrix(height, width);
+Gradient gradientMagnitudeAndOrientation(Matrix *vertical, Matrix *horizontal) {
+    int height = vertical->height;
+    int width = vertical->width;
+    Matrix gradientMagnitudeMatrix = createMatrix(height, width);
+    Matrix gradientOrientationMatrix = createMatrix(height, width);
 
     // Compute gradient magnitude and orientation
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            double gradientMagnitude = sqrt(pow(iSobelFilteredMatrix->map[i][j], 2) + pow(jSobelFilteredMatrix->map[i][j], 2));
-            double gradientAngle = atan2(jSobelFilteredMatrix->map[i][j], iSobelFilteredMatrix->map[i][j]) * (180.0 / PI);
+            double gradientMagnitude = sqrt(pow(vertical->map[i][j], 2) + pow(horizontal->map[i][j], 2));
+            double gradientAngle = atan2(horizontal->map[i][j], vertical->map[i][j]) * (180.0 / PI);
             if (gradientAngle < 0) {
                 gradientAngle += 360;
             }
-            gradientMagnitudeAndOrientation[0]->map[i][j] = gradientMagnitude;
-            gradientMagnitudeAndOrientation[1]->map[i][j] = gradientAngle;
+            gradientAngle = fmod(gradientAngle + 90, 360);
+            gradientMagnitudeMatrix.map[i][j] = gradientMagnitude;
+            gradientOrientationMatrix.map[i][j] = gradientAngle;
         }
     }
+    Gradient result = {gradientMagnitudeMatrix, gradientOrientationMatrix};
 
-    return gradientMagnitudeAndOrientation;
+    return result;
 }
+
+//------------------------------------------------sobel filter-----------------------------------------------------
 
 Image sobel(Image img) {
     double iSobelArr[3][3] = {{1, 2, 1},
@@ -205,10 +204,11 @@ Image sobel(Image img) {
 
     Matrix iSobelFilteredMatrix = convolve(inputImgMatrix, iSobelFilter);
     Matrix jSobelFilteredMatrix = convolve(inputImgMatrix, jSobelFilter);
-    //////// NED TO FINISH CHANGING METHOD GRADIENT AND ORIENTATION IMPLEMENTATION
-    Matrix gradientMagnitudeMatrix = gradientMagnitudeAndOrientation(&iSobelFilteredMatrix, &jSobelFilteredMatrix, );
 
-    Image sobelFilteredImg = matrix2Image(gradientMagnitudeMatrix, 1, 1);
+    Gradient gradient = gradientMagnitudeAndOrientation(&iSobelFilteredMatrix, &jSobelFilteredMatrix);
+    Matrix gradientMagnitude = gradient.gradientMagnitudeMatrix;
+
+    Image sobelFilteredImg = matrix2Image(gradientMagnitude, 1, 1);
 
     Image thresholdedSobelFilteredImg = function_imageBlackWhite(sobelFilteredImg, 60);
 
@@ -217,13 +217,42 @@ Image sobel(Image img) {
     deleteMatrix(iSobelFilteredMatrix);
     deleteMatrix(jSobelFilteredMatrix);
     deleteMatrix(inputImgMatrix);
-    deleteMatrix(gradientMagnitudeMatrix);
+    deleteMatrix(gradientMagnitude);
     deleteImage(sobelFilteredImg);
 
     return thresholdedSobelFilteredImg;
 }
 
 //--------------------------------------------------canny filter-------------------------------------------------------------
+
+Matrix assignSector(const Matrix *gradientMagnitude, const Matrix *gradientOrientation) {
+    int height = gradientMagnitude->height;
+    int width = gradientMagnitude->width;
+    Matrix sectorMatrix = createMatrix(height, width);
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            double angle = gradientOrientation->map[i][j];
+            int sector;
+            if ((angle >= 337.5 && angle < 22.5) || (angle >= 157.5 && angle < 202.5)) {
+                sector = 0;
+            } else if ((angle >= 22.5 && angle < 67.5) || (angle >= 202.5 && angle < 247.5)) {
+                sector = 1;
+            } else if ((angle >= 67.5 && angle < 112.5) || (angle >= 247.5 && angle < 292.5)) {
+                sector = 2;
+            } else {    // ((angle >= 112.5 && angle < 157.5 || (angle >= 292.5 && angle < 337.5))
+                sector = 3;
+            }
+            sectorMatrix.map[i][j] = sector;
+        }
+    }
+    
+    return sectorMatrix;
+}
+
+Matrix nonmaximaSuppression(Matrix *gradientMagnitude, Matrix *sector) {
+    
+}
 
 Image canny(Image img) {
     double pCannyArr[2][2] = {{0.5, 0.5},
@@ -237,17 +266,21 @@ Image canny(Image img) {
     Matrix pCannyFilteredMatrix = convolve(inputImgMatrix, pCannyFilter);
     Matrix qCannyFitleredMatrix = convolve(inputImgMatrix, qCannyFilter);
 
-    Matrix gradientMagnitudeMatrix = gradientMagnitudeAndOrientation(&pCannyFilteredMatrix, &qCannyFitleredMatrix);
+    Gradient gradient = gradientMagnitudeAndOrientation(&pCannyFilteredMatrix, &qCannyFitleredMatrix);
+    Matrix gradientMagnitude = gradient.gradientMagnitudeMatrix;
+    Matrix gradientOrientation = gradient.gradientOreintationMatrix;
 
-    Image cannyFilteredImg = matrix2Image(gradientMagnitudeMatrix, 1, 1);
+    Matrix sectorMatrix = assignSector(&gradientMagnitude, &gradientOrientation);
+
+    Image cannyFilteredImg = matrix2Image(gradientMagnitude, 1, 1);
 
     deleteMatrix(pCannyFilter);
     deleteMatrix(qCannyFilter);
     deleteMatrix(inputImgMatrix);
     deleteMatrix(pCannyFilteredMatrix);
     deleteMatrix(qCannyFitleredMatrix);
-    deleteMatrix(gradientMagnitudeMatrix);
+    deleteMatrix(gradientMagnitude);
+    deleteMatrix(gradientOrientation);
 
     return cannyFilteredImg;
 }
-
