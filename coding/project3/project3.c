@@ -166,19 +166,30 @@ Matrix convolve(Matrix m1, Matrix m2) {
 
 //------------------------------------------------sobel filter-----------------------------------------------------
 
-Matrix gradientMagnitudeAndThreshold(Matrix *iSobelFilteredMatrix, Matrix *jSobelFilteredMatrix) {
-    Matrix gradientMagnitudeMatrix = createMatrix(iSobelFilteredMatrix->height, iSobelFilteredMatrix->width);
+Matrix **gradientMagnitudeAndOrientation(Matrix *iSobelFilteredMatrix, Matrix *jSobelFilteredMatrix, int height, int width) {
+    // Allocate memory for the array of Matrix pointers
+    Matrix **gradientMagnitudeAndOrientation = (Matrix **)malloc(2 * sizeof(Matrix *));
+    gradientMagnitudeAndOrientation[0] = (Matrix *)malloc(sizeof(Matrix));
+    gradientMagnitudeAndOrientation[1] = (Matrix *)malloc(sizeof(Matrix));
 
-    for (int i = 0; i < gradientMagnitudeMatrix.height; i++) {
-        for (int j = 0; j < gradientMagnitudeMatrix.width; j++) {
+    // Create the matrices
+    *gradientMagnitudeAndOrientation[0] = createMatrix(height, width);
+    *gradientMagnitudeAndOrientation[1] = createMatrix(height, width);
+
+    // Compute gradient magnitude and orientation
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
             double gradientMagnitude = sqrt(pow(iSobelFilteredMatrix->map[i][j], 2) + pow(jSobelFilteredMatrix->map[i][j], 2));
-            // double gradientAngle = (PI / 2 + atan(iSobelFilteredMatrix->map[i][j]/jSobelFilteredMatrix->map[i][j])) * 255 / PI;
-            // gradientMagnitudeMatrix.map[i][j] = threshold(&gradientMagnitude, &gradientAngle);
-            gradientMagnitudeMatrix.map[i][j] = gradientMagnitude;
+            double gradientAngle = atan2(jSobelFilteredMatrix->map[i][j], iSobelFilteredMatrix->map[i][j]) * (180.0 / PI);
+            if (gradientAngle < 0) {
+                gradientAngle += 360;
+            }
+            gradientMagnitudeAndOrientation[0]->map[i][j] = gradientMagnitude;
+            gradientMagnitudeAndOrientation[1]->map[i][j] = gradientAngle;
         }
     }
 
-    return gradientMagnitudeMatrix;
+    return gradientMagnitudeAndOrientation;
 }
 
 Image sobel(Image img) {
@@ -194,8 +205,8 @@ Image sobel(Image img) {
 
     Matrix iSobelFilteredMatrix = convolve(inputImgMatrix, iSobelFilter);
     Matrix jSobelFilteredMatrix = convolve(inputImgMatrix, jSobelFilter);
-
-    Matrix gradientMagnitudeMatrix = gradientMagnitudeAndThreshold(&iSobelFilteredMatrix, &jSobelFilteredMatrix);
+    //////// NED TO FINISH CHANGING METHOD GRADIENT AND ORIENTATION IMPLEMENTATION
+    Matrix gradientMagnitudeMatrix = gradientMagnitudeAndOrientation(&iSobelFilteredMatrix, &jSobelFilteredMatrix, );
 
     Image sobelFilteredImg = matrix2Image(gradientMagnitudeMatrix, 1, 1);
 
@@ -226,7 +237,7 @@ Image canny(Image img) {
     Matrix pCannyFilteredMatrix = convolve(inputImgMatrix, pCannyFilter);
     Matrix qCannyFitleredMatrix = convolve(inputImgMatrix, qCannyFilter);
 
-    Matrix gradientMagnitudeMatrix = gradientMagnitudeAndThreshold(&pCannyFilteredMatrix, &qCannyFitleredMatrix);
+    Matrix gradientMagnitudeMatrix = gradientMagnitudeAndOrientation(&pCannyFilteredMatrix, &qCannyFitleredMatrix);
 
     Image cannyFilteredImg = matrix2Image(gradientMagnitudeMatrix, 1, 1);
 
