@@ -250,7 +250,50 @@ Matrix assignSector(const Matrix *gradientMagnitude, const Matrix *gradientOrien
     return sectorMatrix;
 }
 
-Matrix nonmaximaSuppression(Matrix *gradientMagnitude, Matrix *sector) {
+Matrix nonmaximaSuppression(Matrix *gradientMagnitudeMatrix, Matrix *sectorMatrix) {
+    int height = gradientMagnitudeMatrix->height;
+    int width = gradientMagnitudeMatrix->width;
+    Matrix suppressedMatrix = createMatrix(height, width);
+
+    for (int i = 1; i < height - 1; i++) {
+        for (int j = 1; j < width - 1; j++) {
+            int sector = sectorMatrix->map[i][j];
+            int x1, x2, y1, y2;
+            if (sector == 0) {
+                x1 = x2 = j;            //    x
+                y1 = i - 1;             //    x
+                y2 = i + 1;             //    x
+            } else if (sector == 1) {
+                x1 = j - 1;             //  x
+                x2 = j + 1;             //    x
+                y1 = i - 1;             //      x
+                y2 = i + 1;
+            } else if (sector == 2) {
+                x1 = j - 1;             //
+                x2 = j + 1;             //  x x x
+                y1 = y2 = i;            //
+            } else {    // sector == 3
+                x1 = j - 1;             //      x
+                x2 = j + 1;             //    x
+                y1 = i + 1;             //  x
+                y2 = i - 1;
+            }
+
+            double gM0 = gradientMagnitudeMatrix->map[i][j];
+            double gM1 = gradientMagnitudeMatrix->map[y1][x1];
+            double gM2 = gradientMagnitudeMatrix->map[y2][x2];
+            if (gM0 < gM1 || gM0 < gM2) {
+                suppressedMatrix.map[i][j] = 0;
+            } else {
+                suppressedMatrix.map[i][j] = gM0;
+            }
+        }
+    }
+
+    return suppressedMatrix;
+}
+
+Matrix hysteresisThreshold(Matrix *suppressedMatrix, double lowThreshold, double highThreshold) {
     
 }
 
@@ -272,7 +315,9 @@ Image canny(Image img) {
 
     Matrix sectorMatrix = assignSector(&gradientMagnitude, &gradientOrientation);
 
-    Image cannyFilteredImg = matrix2Image(gradientMagnitude, 1, 1);
+    Matrix suppressedMatrix = nonmaximaSuppression(&gradientMagnitude, &sectorMatrix);
+
+    Image cannyFilteredImg = matrix2Image(suppressedMatrix, 1, 1);
 
     deleteMatrix(pCannyFilter);
     deleteMatrix(qCannyFilter);
@@ -281,6 +326,8 @@ Image canny(Image img) {
     deleteMatrix(qCannyFitleredMatrix);
     deleteMatrix(gradientMagnitude);
     deleteMatrix(gradientOrientation);
+    deleteMatrix(sectorMatrix);
+    deleteMatrix(suppressedMatrix);
 
     return cannyFilteredImg;
 }
