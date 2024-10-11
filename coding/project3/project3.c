@@ -5,7 +5,7 @@
 // project3
 // 
 // created by Michael Huh 9/30/24
-// last modified 10/9/24
+// last modified 10/10/24
 // 
 // compile:
 // gcc -o main project3.c netpbm.c
@@ -293,8 +293,60 @@ Matrix nonmaximaSuppression(Matrix *gradientMagnitudeMatrix, Matrix *sectorMatri
     return suppressedMatrix;
 }
 
+void followPathAndRelabel(Matrix *resolvedLabelMatrix, Matrix *labelMatrix, int currY, int currX) {
+    int dY[8] = {-1, -1, -1, 0, 0, 1, 1, 1};
+    int dX[8] = {-1, 0, 1, -1, 1, -1, 0, 1};
+
+    for (int i = 0; i < 8; i ++) {
+        int resY = currY + dY[i];
+        int resX = currX + dX[i];
+
+        if (resY >= 0 && resY < labelMatrix->height && resX >= 0 && resX < labelMatrix->width) {
+            if (labelMatrix->map[resY][resX] == 2) {
+                labelMatrix->map[resY][resX] = 1;
+                resolvedLabelMatrix->map[resY][resX] = 255;
+                followPathAndRelabel(resolvedLabelMatrix, labelMatrix, resY, resX);
+            }
+        }
+    }
+}
+
 Matrix hysteresisThreshold(Matrix *suppressedMatrix, double lowThreshold, double highThreshold) {
-    
+    int height = suppressedMatrix->height;
+    int width = suppressedMatrix->width;
+    Matrix labelMatrix = createMatrix(height, width);   // 0 = no edge; 1 = edge; 2 = candidate
+
+    // first pass
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            double magnitude = suppressedMatrix->map[i][j];
+            int label;
+
+            if (magnitude < lowThreshold) {
+                label = 0;
+            } else if (magnitude > highThreshold) {
+                label = 1;
+            } else {
+                label = 2;
+            }
+            labelMatrix.map[i][j] = label;
+        }
+    }
+
+    // second pass
+    Matrix resolvedLabelMatrix = createMatrix(height, width);
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            if (labelMatrix.map[i][j] == 1) {
+                resolvedLabelMatrix.map[i][j] = 255;
+                followPathAndRelabel(&resolvedLabelMatrix, &labelMatrix, i, j);
+            }
+        }
+    }
+
+    deleteMatrix(labelMatrix);
+
+    return resolvedLabelMatrix;
 }
 
 Image canny(Image img) {
@@ -317,7 +369,9 @@ Image canny(Image img) {
 
     Matrix suppressedMatrix = nonmaximaSuppression(&gradientMagnitude, &sectorMatrix);
 
-    Image cannyFilteredImg = matrix2Image(suppressedMatrix, 1, 1);
+    Matrix hysteresisThresholdedMatrix = hysteresisThreshold(&suppressedMatrix, 20, 30);
+
+    Image cannyFilteredImg = matrix2Image(hysteresisThresholdedMatrix, 1, 1);
 
     deleteMatrix(pCannyFilter);
     deleteMatrix(qCannyFilter);
@@ -328,6 +382,7 @@ Image canny(Image img) {
     deleteMatrix(gradientOrientation);
     deleteMatrix(sectorMatrix);
     deleteMatrix(suppressedMatrix);
+    deleteMatrix(hysteresisThresholdedMatrix);
 
     return cannyFilteredImg;
 }
