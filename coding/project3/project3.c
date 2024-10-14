@@ -5,7 +5,7 @@
 // project3
 // 
 // created by Michael Huh 9/30/24
-// last modified 10/13/24
+// last modified 10/14/24
 // 
 // compile:
 // gcc -o main project3.c netpbm.c
@@ -25,10 +25,6 @@
 #define CONVOLUTION_FILTER_WIDTH 5
 
 // function prototypes
-void printMatrix(const Matrix *);
-Matrix convolve(Matrix, Matrix);
-Image sobel(Image);
-Image canny(Image);
 void edgeDetection(char *, char *, char *);
 
 int main(int argc, const char *argv[]) {
@@ -185,7 +181,7 @@ Image sobel(Image img) {
     Image sobelFilteredImg = matrix2Image(gradient.gradientMagnitudeMatrix, 1, 1);
 
     // threshold img
-    Image thresholdedSobelFilteredImg = function_imageBlackWhite(sobelFilteredImg, 40);
+    Image thresholdedSobelFilteredImg = function_imageBlackWhite(sobelFilteredImg, 45);
 
     // free memory
     deleteMatrix(iSobelFilter);
@@ -334,23 +330,25 @@ Matrix hysteresisThreshold(const Matrix *suppressedMatrix, double lowThreshold, 
 
 Image canny(Image img) {
     // horizontal contour mask arr
-    double pCannyArr[2][2] = {{0.5, 0.5},
-                                {-0.5, -0.5}};
+    double iSobelArr[3][3] = {{1, 2, 1},
+                                {0, 0, 0},
+                                {-1, -2, -1}};
     // vertical contour mask arr
-    double qCannyArr[2][2] = {{0.5, -0.5},
-                                {0.5, -0.5}};
+    double jSobelArr[3][3] = {{1, 0, -1},
+                                {2, 0, -2},
+                                {1, 0, -1}};
     // arr to matrix
-    Matrix pCannyFilter = createMatrixFromArray(&pCannyArr[0][0], 2, 2);
-    Matrix qCannyFilter = createMatrixFromArray(&qCannyArr[0][0], 2, 2);
+    Matrix iSobelFilter = createMatrixFromArray(&iSobelArr[0][0], 3, 3);
+    Matrix jSobelFilter = createMatrixFromArray(&jSobelArr[0][0], 3, 3);
     // input img to matrix
     Matrix inputImgMatrix = image2Matrix(img);
 
     // apply masks to input img
-    Matrix pCannyFilteredMatrix = convolve(inputImgMatrix, pCannyFilter);
-    Matrix qCannyFitleredMatrix = convolve(inputImgMatrix, qCannyFilter);
+    Matrix iSobelFilteredMatrix = convolve(inputImgMatrix, iSobelFilter);
+    Matrix jSobelFilteredMatrix = convolve(inputImgMatrix, jSobelFilter);
 
     // get gradient magnitude and orientation
-    Gradient gradient = gradientMagnitudeAndOrientation(&qCannyFitleredMatrix, &pCannyFilteredMatrix);
+    Gradient gradient = gradientMagnitudeAndOrientation(&jSobelFilteredMatrix, &iSobelFilteredMatrix);
 
     // assign sectors for nonmaxima suppression
     Matrix sectorMatrix = assignSector(&gradient.gradientMagnitudeMatrix, &gradient.gradientOrientationMatrix);
@@ -363,17 +361,17 @@ Image canny(Image img) {
     Matrix adjustedSuppressedMatrix = image2Matrix(tempImg);
 
     // perform hysteresis thresholding
-    Matrix hysteresisThresholdedMatrix = hysteresisThreshold(&adjustedSuppressedMatrix, 10, 30);
+    Matrix hysteresisThresholdedMatrix = hysteresisThreshold(&adjustedSuppressedMatrix, 40, 50);
 
     // matrix to img
     Image cannyFilteredImg = matrix2Image(hysteresisThresholdedMatrix, 1, 1);
 
     // free memory
-    deleteMatrix(pCannyFilter);
-    deleteMatrix(qCannyFilter);
+    deleteMatrix(iSobelFilter);
+    deleteMatrix(jSobelFilter);
     deleteMatrix(inputImgMatrix);
-    deleteMatrix(pCannyFilteredMatrix);
-    deleteMatrix(qCannyFitleredMatrix);
+    deleteMatrix(iSobelFilteredMatrix);
+    deleteMatrix(jSobelFilteredMatrix);
     deleteMatrix(gradient.gradientMagnitudeMatrix);
     deleteMatrix(gradient.gradientOrientationMatrix);
     deleteMatrix(sectorMatrix);
