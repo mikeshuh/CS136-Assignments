@@ -5,7 +5,7 @@
 // project3
 // 
 // created by Michael Huh 9/30/24
-// last modified 10/10/24
+// last modified 10/13/24
 // 
 // compile:
 // gcc -o main project3.c netpbm.c
@@ -29,50 +29,11 @@ void printMatrix(const Matrix *);
 Matrix convolve(Matrix, Matrix);
 Image sobel(Image);
 Image canny(Image);
+void edgeDetection(char *, char *, char *);
 
 int main(int argc, const char *argv[]) {
-    // input img
-    Image inputImage = readImage("car_bw.pgm");
-    // input img -> matrix
-    Matrix inputMatrix = image2Matrix(inputImage);
-
-    //---------------------------------------------------------------------convolution filter-----------------------------------------------------------------------------
-
-    // 5x5 discrete gaussian filter
-    double gaussianFilterArray[CONVOLUTION_FILTER_HEIGHT][CONVOLUTION_FILTER_WIDTH] = {{(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273},
-                                                                                        {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
-                                                                                        {(double)7/273, (double)26/273, (double)41/273, (double)26/273, (double)7/273},
-                                                                                        {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
-                                                                                        {(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273}};
-
-    Matrix gaussianFilter = createMatrixFromArray(&gaussianFilterArray[0][0], CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
-    printf("\nGaussian Filter: %d x %d\n", CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
-    printMatrix(&gaussianFilter);
-
-    //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    // gaussian smooth input matrix
-    Matrix smoothedMatrix = convolve(inputMatrix, gaussianFilter);
-    // convert smoothed matrix to img
-    Image smoothedImage = matrix2Image(smoothedMatrix, 1, 1);
-
-    // write smoothed img to files
-    writeImage(smoothedImage, "smoothed_image.pgm");
-
-    Image sobelFilteredImage = sobel(smoothedImage);
-    writeImage(sobelFilteredImage, "sobeltest.pgm");
-
-    Image cannyFilteredImage = canny(smoothedImage);
-    writeImage(cannyFilteredImage, "cannytest.pgm");
-
-    // free memory; delete imgs and matricies
-    deleteImage(inputImage);
-    deleteMatrix(inputMatrix);
-    deleteMatrix(gaussianFilter);
-    deleteMatrix(smoothedMatrix);
-    deleteImage(smoothedImage);
-    deleteImage(sobelFilteredImage);
-    deleteImage(cannyFilteredImage);
+    edgeDetection("car_bw.pgm", "car_bw_sobel.pbm", "car_bw_canny.pbm");
+    edgeDetection("car.ppm", "car_sobel.pbm", "car_canny.pbm");
 
     printf("Program ends ...\n");
     return 0;
@@ -160,26 +121,33 @@ Matrix convolve(Matrix m1, Matrix m2) {
 
 //----------------------------------------gradient mag and orientation--------------------------------------------
 
+// struct for gradient magnitude and orientation
 typedef struct {
     Matrix gradientMagnitudeMatrix;
-    Matrix gradientOreintationMatrix;
+    Matrix gradientOrientationMatrix;
 } Gradient;
 
-Gradient gradientMagnitudeAndOrientation(Matrix *vertical, Matrix *horizontal) {
+// calculate gradient magnitude and orientation; args: vertical and horizontal sobel filtered matrices
+Gradient gradientMagnitudeAndOrientation(const Matrix *vertical, const Matrix *horizontal) {
     int height = vertical->height;
     int width = vertical->width;
     Matrix gradientMagnitudeMatrix = createMatrix(height, width);
     Matrix gradientOrientationMatrix = createMatrix(height, width);
 
-    // Compute gradient magnitude and orientation
+    // compute gradient magnitude and orientation
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
+            // gradient magnitude
             double gradientMagnitude = sqrt(pow(vertical->map[i][j], 2) + pow(horizontal->map[i][j], 2));
+
+            // gradient angle
             double gradientAngle = atan2(horizontal->map[i][j], vertical->map[i][j]) * (180.0 / PI);
-            if (gradientAngle < 0) {
-                gradientAngle += 360;
-            }
-            gradientAngle = fmod(gradientAngle + 90, 360);
+            if (gradientAngle < 0) {        // ensure angles from 0 to 360 deg                                              //     180
+                gradientAngle += 360;                                                                                       //  270   90
+            }                                                                                                               //      0
+            gradientAngle = fmod(gradientAngle + 90, 360);      // adjust angles so 0 deg is oriented south like so ----------------^         
+
+            // set gradient magnitude and orientation
             gradientMagnitudeMatrix.map[i][j] = gradientMagnitude;
             gradientOrientationMatrix.map[i][j] = gradientAngle;
         }
@@ -192,32 +160,41 @@ Gradient gradientMagnitudeAndOrientation(Matrix *vertical, Matrix *horizontal) {
 //------------------------------------------------sobel filter-----------------------------------------------------
 
 Image sobel(Image img) {
+    // horizontal contour mask arr
     double iSobelArr[3][3] = {{1, 2, 1},
                                 {0, 0, 0},
                                 {-1, -2, -1}};
+    // vertical contour mask arr
     double jSobelArr[3][3] = {{1, 0, -1},
                                 {2, 0, -2},
                                 {1, 0, -1}};
+    // arr to matrix
     Matrix iSobelFilter = createMatrixFromArray(&iSobelArr[0][0], 3, 3);
     Matrix jSobelFilter = createMatrixFromArray(&jSobelArr[0][0], 3, 3);
+    // input img to matrix
     Matrix inputImgMatrix = image2Matrix(img);
 
+    // apply masks to input img
     Matrix iSobelFilteredMatrix = convolve(inputImgMatrix, iSobelFilter);
     Matrix jSobelFilteredMatrix = convolve(inputImgMatrix, jSobelFilter);
 
-    Gradient gradient = gradientMagnitudeAndOrientation(&iSobelFilteredMatrix, &jSobelFilteredMatrix);
-    Matrix gradientMagnitude = gradient.gradientMagnitudeMatrix;
+    // get gradient magnitude and orientation
+    Gradient gradient = gradientMagnitudeAndOrientation(&jSobelFilteredMatrix, &iSobelFilteredMatrix);
 
-    Image sobelFilteredImg = matrix2Image(gradientMagnitude, 1, 1);
+    // gradient matrix to img
+    Image sobelFilteredImg = matrix2Image(gradient.gradientMagnitudeMatrix, 1, 1);
 
-    Image thresholdedSobelFilteredImg = function_imageBlackWhite(sobelFilteredImg, 60);
+    // threshold img
+    Image thresholdedSobelFilteredImg = function_imageBlackWhite(sobelFilteredImg, 40);
 
+    // free memory
     deleteMatrix(iSobelFilter);
     deleteMatrix(jSobelFilter);
+    deleteMatrix(inputImgMatrix);
     deleteMatrix(iSobelFilteredMatrix);
     deleteMatrix(jSobelFilteredMatrix);
-    deleteMatrix(inputImgMatrix);
-    deleteMatrix(gradientMagnitude);
+    deleteMatrix(gradient.gradientMagnitudeMatrix);
+    deleteMatrix(gradient.gradientOrientationMatrix);
     deleteImage(sobelFilteredImg);
 
     return thresholdedSobelFilteredImg;
@@ -225,6 +202,7 @@ Image sobel(Image img) {
 
 //--------------------------------------------------canny filter-------------------------------------------------------------
 
+// assign sector helper function for nonmaxima suppression
 Matrix assignSector(const Matrix *gradientMagnitude, const Matrix *gradientOrientation) {
     int height = gradientMagnitude->height;
     int width = gradientMagnitude->width;
@@ -234,6 +212,10 @@ Matrix assignSector(const Matrix *gradientMagnitude, const Matrix *gradientOrien
         for (int j = 0; j < width; j++) {
             double angle = gradientOrientation->map[i][j];
             int sector;
+            // sectors
+                //  1   0   3
+                //  2 [i,j] 2
+                //  3   0   1
             if ((angle >= 337.5 && angle < 22.5) || (angle >= 157.5 && angle < 202.5)) {
                 sector = 0;
             } else if ((angle >= 22.5 && angle < 67.5) || (angle >= 202.5 && angle < 247.5)) {
@@ -250,7 +232,8 @@ Matrix assignSector(const Matrix *gradientMagnitude, const Matrix *gradientOrien
     return sectorMatrix;
 }
 
-Matrix nonmaximaSuppression(Matrix *gradientMagnitudeMatrix, Matrix *sectorMatrix) {
+// nonmaxima suppression
+Matrix nonmaximaSuppression(const Matrix *gradientMagnitudeMatrix, const Matrix *sectorMatrix) {
     int height = gradientMagnitudeMatrix->height;
     int width = gradientMagnitudeMatrix->width;
     Matrix suppressedMatrix = createMatrix(height, width);
@@ -279,6 +262,7 @@ Matrix nonmaximaSuppression(Matrix *gradientMagnitudeMatrix, Matrix *sectorMatri
                 y2 = i - 1;
             }
 
+            // compare gradient mags
             double gM0 = gradientMagnitudeMatrix->map[i][j];
             double gM1 = gradientMagnitudeMatrix->map[y1][x1];
             double gM2 = gradientMagnitudeMatrix->map[y2][x2];
@@ -293,7 +277,9 @@ Matrix nonmaximaSuppression(Matrix *gradientMagnitudeMatrix, Matrix *sectorMatri
     return suppressedMatrix;
 }
 
-void followPathAndRelabel(Matrix *resolvedLabelMatrix, Matrix *labelMatrix, int currY, int currX) {
+// follow candidate edge path and relabel if connected to edge; helper function for hysteresis thresholding
+// modifies label matrix
+void followPathAndRelabel(Matrix *labelMatrix, int currY, int currX) {
     int dY[8] = {-1, -1, -1, 0, 0, 1, 1, 1};
     int dX[8] = {-1, 0, 1, -1, 1, -1, 0, 1};
 
@@ -303,18 +289,18 @@ void followPathAndRelabel(Matrix *resolvedLabelMatrix, Matrix *labelMatrix, int 
 
         if (resY >= 0 && resY < labelMatrix->height && resX >= 0 && resX < labelMatrix->width) {
             if (labelMatrix->map[resY][resX] == 2) {
-                labelMatrix->map[resY][resX] = 1;
-                resolvedLabelMatrix->map[resY][resX] = 255;
-                followPathAndRelabel(resolvedLabelMatrix, labelMatrix, resY, resX);
+                labelMatrix->map[resY][resX] = 255;
+                followPathAndRelabel(labelMatrix, resY, resX);
             }
         }
     }
 }
 
-Matrix hysteresisThreshold(Matrix *suppressedMatrix, double lowThreshold, double highThreshold) {
+// hysteresis thresholding; args: nonmaxima suppression matrix, lowthreshold, highthreshold
+Matrix hysteresisThreshold(const Matrix *suppressedMatrix, double lowThreshold, double highThreshold) {
     int height = suppressedMatrix->height;
     int width = suppressedMatrix->width;
-    Matrix labelMatrix = createMatrix(height, width);   // 0 = no edge; 1 = edge; 2 = candidate
+    Matrix labelMatrix = createMatrix(height, width);   // 0 = no edge; 255 = edge; 2 = candidate
 
     // first pass
     for (int i = 0; i < height; i++) {
@@ -322,67 +308,136 @@ Matrix hysteresisThreshold(Matrix *suppressedMatrix, double lowThreshold, double
             double magnitude = suppressedMatrix->map[i][j];
             int label;
 
+            // apply thresholds
             if (magnitude < lowThreshold) {
-                label = 0;
+                label = 0;                              // no edge
             } else if (magnitude > highThreshold) {
-                label = 1;
+                label = 255;                            // edge
             } else {
-                label = 2;
+                label = 2;                              // candidate edge
             }
             labelMatrix.map[i][j] = label;
         }
     }
 
     // second pass
-    Matrix resolvedLabelMatrix = createMatrix(height, width);
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            if (labelMatrix.map[i][j] == 1) {
-                resolvedLabelMatrix.map[i][j] = 255;
-                followPathAndRelabel(&resolvedLabelMatrix, &labelMatrix, i, j);
+            if (labelMatrix.map[i][j] == 255) {     // if edge
+                followPathAndRelabel(&labelMatrix, i, j);   // check surrounding pixel for candidate, follow path, and relabel
             }
         }
     }
 
-    deleteMatrix(labelMatrix);
-
-    return resolvedLabelMatrix;
+    return labelMatrix;
 }
 
 Image canny(Image img) {
+    // horizontal contour mask arr
     double pCannyArr[2][2] = {{0.5, 0.5},
                                 {-0.5, -0.5}};
+    // vertical contour mask arr
     double qCannyArr[2][2] = {{0.5, -0.5},
                                 {0.5, -0.5}};
+    // arr to matrix
     Matrix pCannyFilter = createMatrixFromArray(&pCannyArr[0][0], 2, 2);
     Matrix qCannyFilter = createMatrixFromArray(&qCannyArr[0][0], 2, 2);
+    // input img to matrix
     Matrix inputImgMatrix = image2Matrix(img);
 
+    // apply masks to input img
     Matrix pCannyFilteredMatrix = convolve(inputImgMatrix, pCannyFilter);
     Matrix qCannyFitleredMatrix = convolve(inputImgMatrix, qCannyFilter);
 
-    Gradient gradient = gradientMagnitudeAndOrientation(&pCannyFilteredMatrix, &qCannyFitleredMatrix);
-    Matrix gradientMagnitude = gradient.gradientMagnitudeMatrix;
-    Matrix gradientOrientation = gradient.gradientOreintationMatrix;
+    // get gradient magnitude and orientation
+    Gradient gradient = gradientMagnitudeAndOrientation(&qCannyFitleredMatrix, &pCannyFilteredMatrix);
 
-    Matrix sectorMatrix = assignSector(&gradientMagnitude, &gradientOrientation);
+    // assign sectors for nonmaxima suppression
+    Matrix sectorMatrix = assignSector(&gradient.gradientMagnitudeMatrix, &gradient.gradientOrientationMatrix);
 
-    Matrix suppressedMatrix = nonmaximaSuppression(&gradientMagnitude, &sectorMatrix);
+    // perform nonmaxima suppression
+    Matrix suppressedMatrix = nonmaximaSuppression(&gradient.gradientMagnitudeMatrix, &sectorMatrix);
 
-    Matrix hysteresisThresholdedMatrix = hysteresisThreshold(&suppressedMatrix, 20, 30);
+    // adjust suppressed matrix to values 0 - 255
+    Image tempImg = matrix2Image(suppressedMatrix, 1, 1);
+    Matrix adjustedSuppressedMatrix = image2Matrix(tempImg);
 
+    // perform hysteresis thresholding
+    Matrix hysteresisThresholdedMatrix = hysteresisThreshold(&adjustedSuppressedMatrix, 10, 30);
+
+    // matrix to img
     Image cannyFilteredImg = matrix2Image(hysteresisThresholdedMatrix, 1, 1);
 
+    // free memory
     deleteMatrix(pCannyFilter);
     deleteMatrix(qCannyFilter);
     deleteMatrix(inputImgMatrix);
     deleteMatrix(pCannyFilteredMatrix);
     deleteMatrix(qCannyFitleredMatrix);
-    deleteMatrix(gradientMagnitude);
-    deleteMatrix(gradientOrientation);
+    deleteMatrix(gradient.gradientMagnitudeMatrix);
+    deleteMatrix(gradient.gradientOrientationMatrix);
     deleteMatrix(sectorMatrix);
     deleteMatrix(suppressedMatrix);
+    deleteImage(tempImg);
+    deleteMatrix(adjustedSuppressedMatrix);
     deleteMatrix(hysteresisThresholdedMatrix);
 
     return cannyFilteredImg;
+}
+
+//-------------------------------------------------edge detection--------------------------------------
+
+void edgeDetection(char *inputFilename, char *sobelFilename, char *cannyFilename) {
+    // input img
+    Image inputImage = readImage(inputFilename);
+    // input img -> matrix
+    Matrix inputMatrix = image2Matrix(inputImage);
+
+    //---------------------------------------------------------------------convolution filter-----------------------------------------------------------------------------
+
+    // 5x5 discrete gaussian filter
+    double gaussianFilterArray[CONVOLUTION_FILTER_HEIGHT][CONVOLUTION_FILTER_WIDTH] = {{(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273},
+                                                                                        {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
+                                                                                        {(double)7/273, (double)26/273, (double)41/273, (double)26/273, (double)7/273},
+                                                                                        {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
+                                                                                        {(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273}};
+
+    Matrix gaussianFilter = createMatrixFromArray(&gaussianFilterArray[0][0], CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
+    printf("\nGaussian Filter: %d x %d\n", CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
+    printMatrix(&gaussianFilter);
+
+    //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    // gaussian smooth input matrix
+    Matrix smoothedMatrix = convolve(inputMatrix, gaussianFilter);
+    // convert smoothed matrix to img
+    Image smoothedImage = matrix2Image(smoothedMatrix, 1, 1);
+
+    // create buffer for smoothed image filename
+    int len = strlen(inputFilename) + strlen("_smoothed_image.pgm") + 1;    // allocate memory for concatenated string
+    char *smoothedFilename = (char *)malloc(len);
+    
+    // copy input filename and concatenate "_smoothed_image.pgm"
+    strcpy(smoothedFilename, inputFilename);
+    strcat(smoothedFilename, "_smoothed_image.pgm");
+
+    // write smoothed image to file
+    writeImage(smoothedImage, smoothedFilename);
+
+    // sobel edge detection
+    Image sobelFilteredImage = sobel(smoothedImage);
+    writeImage(sobelFilteredImage, sobelFilename);
+
+    // canny edge detection
+    Image cannyFilteredImage = canny(smoothedImage);
+    writeImage(cannyFilteredImage, cannyFilename);
+
+    // free memory; delete imgs and matricies
+    deleteImage(inputImage);
+    deleteMatrix(inputMatrix);
+    deleteMatrix(gaussianFilter);
+    deleteMatrix(smoothedMatrix);
+    deleteImage(smoothedImage);
+    deleteImage(sobelFilteredImage);
+    deleteImage(cannyFilteredImage);
 }
