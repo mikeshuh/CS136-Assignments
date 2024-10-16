@@ -30,6 +30,7 @@ void edgeDetection(char *, char *, char *);
 int main(int argc, const char *argv[]) {
     edgeDetection("car_bw.pgm", "car_bw_sobel.pbm", "car_bw_canny.pbm");
     edgeDetection("car.ppm", "car_sobel.pbm", "car_canny.pbm");
+    edgeDetection("berserk-e1594835159209.ppm", "bs.pbm", "bc.pbm");
 
     printf("Program ends ...\n");
     return 0;
