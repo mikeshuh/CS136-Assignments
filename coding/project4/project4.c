@@ -24,13 +24,40 @@
 #define CONVOLUTION_FILTER_HEIGHT 5
 #define CONVOLUTION_FILTER_WIDTH 5
 
+// define accumulator
+    #define MAX_Y 768
+    #define MAX_X 1024
+    #define MAX_R 150
+
+    typedef struct
+    {
+        int y, x, r;
+        int ***voteMap;
+    } Accumulator;
+
 // function prototypes
 void edgeDetection(char *, char *, char *);
+Accumulator initAccumulator(int, int, int);
+void freeAccumulator(Accumulator *);
+void houghTransformedLines(const Image *, Accumulator *);
+Image visualizeHoughMaxima(const Accumulator *);
 
 int main(int argc, const char *argv[]) {
-    edgeDetection("car_bw.pgm", "car_bw_sobel.pbm", "car_bw_canny.pbm");
-    edgeDetection("car.ppm", "car_sobel.pbm", "car_canny.pbm");
-    edgeDetection("berserk-e1594835159209.ppm", "bs.pbm", "bc.pbm");
+    edgeDetection("circle.ppm", "circle_sobel.pbm", "circle_canny.pbm");
+
+    Image inputImg = readImage("circle_sobel.pbm");
+
+    Accumulator accum = initAccumulator(MAX_Y, MAX_X, MAX_R);
+
+    houghTransformedLines(&inputImg, &accum);
+
+    //Image houghMaximaImg = visualizeHoughMaxima(&accum);
+
+    //writeImage(houghMaximaImg, "cirle_maxima.pgm");
+
+    deleteImage(inputImg);
+    freeAccumulator(&accum);
+    //deleteImage(houghMaximaImg);
 
     printf("Program ends ...\n");
     return 0;
@@ -440,3 +467,81 @@ void edgeDetection(char *inputFilename, char *sobelFilename, char *cannyFilename
     deleteImage(sobelFilteredImage);
     deleteImage(cannyFilteredImage);
 }
+
+//---------------------------------------houghTransformLines----------------------------------------------
+
+Accumulator initAccumulator(int y, int x, int r) {
+    Accumulator accum;
+    accum.y = y;
+    accum.x = x;
+    accum.r = r;
+
+    accum.voteMap = (int ***)calloc(y, sizeof(int **));
+    for (int i = 0; i < y; i++) {
+        accum.voteMap[i] = (int **)calloc(x, sizeof(int *));
+        for (int j = 0; j < x; j++) {
+            accum.voteMap[i][j] = (int *)calloc(r, sizeof(int));
+        }
+    }
+
+    return accum;
+}
+
+void freeAccumulator(Accumulator *accum) {
+    for (int i = 0; i < accum->y; i++) {
+        for (int j = 0; j < accum->x; j++) {
+            free(accum->voteMap[i][j]);
+        }
+        free(accum->voteMap[i]);
+    }
+    free(accum->voteMap);
+}
+
+void houghTransformedLines(const Image *edgeImg, Accumulator *accum) {
+    for (int y = 0; y < edgeImg->height; y++) {
+        for (int x = 0; x < edgeImg->width; x++) {
+            if (edgeImg->map[y][x].i > 0) {
+                for (int r = 0; r < accum->r; r++) {
+                    for (int theta = -180; theta < 180; theta++) {
+                        double radian = theta * PI / 180;
+                        int y_center = (int)(y - r * sin(radian));
+                        int x_center = (int)(x - r * cos(radian));
+                        if (y_center >= 0 && y_center < accum->y && x_center >= 0 && x_center < accum->x) {
+                            accum->voteMap[y_center][x_center][r]++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+Image visualizeHoughMaxima(const Accumulator *accum) {
+    int height = accum->y;
+    int width = accum->x;
+    Matrix houghMaximaMatrix = createMatrix(height, width);
+
+    for (int dY = 0; dY < height; dY++) {
+        for (int dX = 0; dX < width; dX++) {
+            for (int r = 0; r < accum->r; r++) {
+                if (accum->voteMap[dY][dX][r] > 0){
+                    for (int theta = -180; theta < 180; theta++) {
+                        double radian = theta * PI / 180;
+                        int y = (int)(dY - r * sin(radian));
+                        int x = (int)(dX - r * cos(radian));
+                        if (y >= 0 && y < accum->y && x >= 0 && x < accum->x) {
+                            houghMaximaMatrix.map[y][x]++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Image houghMaximaImg = matrix2Image(houghMaximaMatrix, 1, 1);
+    deleteMatrix(houghMaximaMatrix);
+
+    return houghMaximaImg;
+}
+
+//---------------------------------------findHoughMaxima--------------------------------------------------
