@@ -2,10 +2,10 @@
 // project4.c
 // CS136
 // 
-// project3
+// project4
 // 
 // created by Michael Huh 10/15/24
-// last modified 10/19/24
+// last modified 10/20/24
 // 
 // compile:
 // gcc -o main project4.c netpbm.c
@@ -13,6 +13,9 @@
 // run:
 // ./main
 // 
+// -----------NOTE-----------
+//  ~15 second execution time on my machine
+//
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,26 +24,28 @@
 #include "netpbm.h"
 
 // convolution filter
-#define CONVOLUTION_FILTER_HEIGHT 5
-#define CONVOLUTION_FILTER_WIDTH 5
+// #define CONVOLUTION_FILTER_HEIGHT 5
+// #define CONVOLUTION_FILTER_WIDTH 5
 
-// define accumulator; change based on image and expected radii
+// define accumulator; estimate radii range
     // soda
-        #define MAX_R 75
-        #define MIN_R 65
+    #define MAX_R 75
+    #define MIN_R 65
 
-    // Define a maximum number of circles
-    #define MAX_CIRCLES 100
+// define a maximum number of circles
+#define MAX_CIRCLES 100
     
-    typedef struct
-    {
-        int max_y, max_x, max_r, min_r;
-        int ***voteMap;
-    } Accumulator;
+// accumulator struct
+typedef struct
+{
+    int max_y, max_x, max_r, min_r;
+    int ***voteMap;
+} Accumulator;
 
-    typedef struct {
-        int y, x, r;  // Coordinates of center and radius
-    } Circle;
+// circle struct
+typedef struct {
+    int y, x, r;  // Coordinates of center and radius
+} Circle;
 
 // function prototypes
 void edgeDetection(char *, char *, char *);
@@ -52,58 +57,69 @@ Circle *findHoughMaxima(Accumulator *, int threshold, int *);
 void drawCircle(Image *, int, int, int, int, int, int, int);
 
 int main(int argc, const char *argv[]) {
-    // soda
-        Image originalImg = readImage("soda.ppm");
-        edgeDetection("soda.ppm", "soda_sobel.pbm", "soda_canny.pbm");
-            Image inputImg = readImage("soda_sobel.pbm");
+    printf("\n");
 
+    // original img
+    Image originalImg = readImage("soda.ppm");
+
+    // edge detection
+    edgeDetection("soda.ppm", "soda_sobel.pbm", "soda_canny.pbm");
+    
+    // edge img
+    Image inputImg = readImage("soda_sobel.pbm");
+
+    // create accumulator
     Accumulator accum = initAccumulator(inputImg.height, inputImg.width, MAX_R, MIN_R);
 
+    // hough transformation
     houghTransformLines(&inputImg, &accum);
 
+    // create visualization of accumulator; create hough maxima image
     Image houghMaximaImg = visualizeHoughMaxima(&accum);
+    writeImage(houghMaximaImg, "hough_maxima.pgm");     // write to files
 
-    writeImage(houghMaximaImg, "hough_maxima.pgm");
+    int numCircles;     // declare numCircles var
+    // find maxima; store in Circle arr
+    Circle *detectedCircles = findHoughMaxima(&accum, 170, &numCircles);    // adjust threshold value based on img experimentation
 
-    int numCircles;
-    Circle *detectedCircles = findHoughMaxima(&accum, 170, &numCircles); // Adjust threshold value based on experimentation
-
-    printf("Num Circles: %d\n", numCircles);
+    printf("Num Circles/Soda Cans: %d\n", numCircles);    // print num circles detected
+    // print circle location (x, y) and radius
     for (int i = 0; i < numCircles; i++) {
-        printf("Circle detected: Center = (%d, %d), Radius = %d\n", detectedCircles[i].y, detectedCircles[i].x, detectedCircles[i].r);
+        printf("Circle/Can Detected: Center = (%d, %d), Radius = %d\n", detectedCircles[i].x, detectedCircles[i].y, detectedCircles[i].r);
     }
 
-    // Draw the detected circles on the original image in red
-    int thickness = 2;  // Adjust this value to increase or decrease thickness
+    // outline detected circles over original image in red
+    int thickness = 2;      // adjust value to increase or decrease thickness of circle
     for (int i = 0; i < numCircles; i++) {
-        drawCircle(&originalImg, detectedCircles[i].y, detectedCircles[i].x, detectedCircles[i].r, thickness, 255, 0, 0);  // Red color
+        drawCircle(&originalImg, detectedCircles[i].y, detectedCircles[i].x, detectedCircles[i].r, thickness, 255, 0, 0);   // draw red color circle
     }
+    printf("\nDisplay Located Circles Complete...\n");
 
-    // Save the modified image with circles drawn
+    // save modified image with circles drawn to files
     writeImage(originalImg, "hough_image.ppm");
 
-    // Don't forget to free the memory
-    free(detectedCircles);
+    // free memory
     deleteImage(originalImg);
     deleteImage(inputImg);
     freeAccumulator(&accum);
     deleteImage(houghMaximaImg);
+    free(detectedCircles);
 
-    printf("\nProgram ends ...\n");
+    printf("\nProgram ends...\n\n");
     return 0;
 }
 
 //---------------------------------------------print matrix----------------------------------------------------------
 
-void printMatrix(const Matrix *m) {
-    for (int i = 0; i < m->height; i++) {
-        for (int j = 0; j < m->width; j++) {
-            printf("%f ", m->map[i][j]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
+// void printMatrix(const Matrix *m) {
+//     for (int i = 0; i < m->height; i++) {
+//         for (int j = 0; j < m->width; j++) {
+//             printf("%f ", m->map[i][j]);
+//         }
+//         printf("\n");
+//     }
+//     printf("\n");
+// }
 
 //-------------------------------function_imageBlackWhite-------------------------------------------------
 /* function that receives an Image structure and an intensity threshold
@@ -446,39 +462,41 @@ Image canny(Image img) {
 void edgeDetection(char *inputFilename, char *sobelFilename, char *cannyFilename) {
     // input img
     Image inputImage = readImage(inputFilename);
-    // // input img -> matrix
-    // Matrix inputMatrix = image2Matrix(inputImage);
 
-    // //---------------------------------------------------------------------convolution filter-----------------------------------------------------------------------------
+    // remove smoothing
+        // // input img -> matrix
+        // Matrix inputMatrix = image2Matrix(inputImage);
 
-    // // 5x5 discrete gaussian filter
-    // double gaussianFilterArray[CONVOLUTION_FILTER_HEIGHT][CONVOLUTION_FILTER_WIDTH] = {{(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273},
-    //                                                                                     {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
-    //                                                                                     {(double)7/273, (double)26/273, (double)41/273, (double)26/273, (double)7/273},
-    //                                                                                     {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
-    //                                                                                     {(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273}};
+        // //---------------------------------------------------------------------convolution filter-----------------------------------------------------------------------------
 
-    // Matrix gaussianFilter = createMatrixFromArray(&gaussianFilterArray[0][0], CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
-    // printf("\nGaussian Filter: %d x %d\n", CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
-    // printMatrix(&gaussianFilter);
+        // // 5x5 discrete gaussian filter
+        // double gaussianFilterArray[CONVOLUTION_FILTER_HEIGHT][CONVOLUTION_FILTER_WIDTH] = {{(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273},
+        //                                                                                     {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
+        //                                                                                     {(double)7/273, (double)26/273, (double)41/273, (double)26/273, (double)7/273},
+        //                                                                                     {(double)4/273, (double)16/273, (double)26/273, (double)16/273, (double)4/273},
+        //                                                                                     {(double)1/273, (double)4/273, (double)7/273, (double)4/273, (double)1/273}};
 
-    // //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+        // Matrix gaussianFilter = createMatrixFromArray(&gaussianFilterArray[0][0], CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
+        // printf("\nGaussian Filter: %d x %d\n", CONVOLUTION_FILTER_HEIGHT, CONVOLUTION_FILTER_WIDTH);
+        // printMatrix(&gaussianFilter);
 
-    // // gaussian smooth input matrix
-    // Matrix smoothedMatrix = convolve(inputMatrix, gaussianFilter);
-    // // convert smoothed matrix to img
-    // Image smoothedImage = matrix2Image(smoothedMatrix, 1, 1);
+        // //-----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    // // create buffer for smoothed image filename
-    // int len = strlen(inputFilename) + strlen("_smoothed_image.pgm") + 1;    // allocate memory for concatenated string
-    // char *smoothedFilename = (char *)malloc(len);
-    
-    // // copy input filename and concatenate "_smoothed_image.pgm"
-    // strcpy(smoothedFilename, inputFilename);
-    // strcat(smoothedFilename, "_smoothed_image.pgm");
+        // // gaussian smooth input matrix
+        // Matrix smoothedMatrix = convolve(inputMatrix, gaussianFilter);
+        // // convert smoothed matrix to img
+        // Image smoothedImage = matrix2Image(smoothedMatrix, 1, 1);
 
-    // // write smoothed image to file
-    // writeImage(smoothedImage, smoothedFilename);
+        // // create buffer for smoothed image filename
+        // int len = strlen(inputFilename) + strlen("_smoothed_image.pgm") + 1;    // allocate memory for concatenated string
+        // char *smoothedFilename = (char *)malloc(len);
+        
+        // // copy input filename and concatenate "_smoothed_image.pgm"
+        // strcpy(smoothedFilename, inputFilename);
+        // strcat(smoothedFilename, "_smoothed_image.pgm");
+
+        // // write smoothed image to file
+        // writeImage(smoothedImage, smoothedFilename);
 
     // sobel edge detection
     Image sobelFilteredImage = sobel(inputImage);  // sobel(smoothedImage);
@@ -500,6 +518,7 @@ void edgeDetection(char *inputFilename, char *sobelFilename, char *cannyFilename
 
 //---------------------------------------houghTransformLines----------------------------------------------
 
+// initialize accumulator
 Accumulator initAccumulator(int y, int x, int max_r, int min_r) {
     Accumulator accum;
     accum.max_y = y;
@@ -507,6 +526,7 @@ Accumulator initAccumulator(int y, int x, int max_r, int min_r) {
     accum.max_r = max_r;
     accum.min_r = min_r;
 
+    // initialize voteMap; 3D array; all values 0
     accum.voteMap = (int ***)calloc(y, sizeof(int **));
     for (int i = 0; i < y; i++) {
         accum.voteMap[i] = (int **)calloc(x, sizeof(int *));
@@ -518,6 +538,7 @@ Accumulator initAccumulator(int y, int x, int max_r, int min_r) {
     return accum;
 }
 
+// free accumulator memory
 void freeAccumulator(Accumulator *accum) {
     for (int i = 0; i < accum->max_y; i++) {
         for (int j = 0; j < accum->max_x; j++) {
@@ -528,16 +549,27 @@ void freeAccumulator(Accumulator *accum) {
     free(accum->voteMap);
 }
 
+// hough transform
 void houghTransformLines(const Image *edgeImg, Accumulator *accum) {
+    // iterate edge img
     for (int y = 0; y < edgeImg->height; y++) {
         for (int x = 0; x < edgeImg->width; x++) {
+            // if pixel is edge
             if (edgeImg->map[y][x].i > 0) {
+                // iterate from min radius to max radius
                 for (int r = accum->min_r; r < accum->max_r; r++) {
+                    // iterate from 0 to 360 degrees
                     for (int theta = 0; theta < 360; theta++) {
+                        // convert to radian
                         double radian = theta * PI / 180;
+
+                        // get y and x locations of potential center
                         int y_center = (int)(y - r * sin(radian));
                         int x_center = (int)(x - r * cos(radian));
+
+                        // check bounds
                         if (y_center >= 0 && y_center < accum->max_y && x_center >= 0 && x_center < accum->max_x) {
+                            // increment accumulator
                             accum->voteMap[y_center][x_center][r]++;
                         }
                     }
@@ -548,66 +580,85 @@ void houghTransformLines(const Image *edgeImg, Accumulator *accum) {
     printf("Hough Transformed Lines Complete...\n\n");
 }
 
+// create image of accumulator
 Image visualizeHoughMaxima(const Accumulator *accum) {
     int height = accum->max_y;
     int width = accum->max_x;
+    // create maxima matrix; 2D projection of the accumulator based on y and x; r is summed
     Matrix houghMaximaMatrix = createMatrix(height, width);
 
+    // itereate accumulator y and x
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
+            // sum r values
             int voteSum = 0;
             for (int r = accum->min_r; r < accum->max_r; r++) {
                 voteSum += accum->voteMap[y][x][r];
             }
+
+            // add to maxima matrix
             houghMaximaMatrix.map[y][x] = voteSum;
         }
     }
 
+    // convert matrix to img with linear scaling, i.e., intensity vals 0-255
     Image houghMaximaImg = matrix2Image(houghMaximaMatrix, 1, 1);
-    deleteMatrix(houghMaximaMatrix);
+
+    deleteMatrix(houghMaximaMatrix);    // free memory
 
     printf("Visualize Hough Maxima Complete...\n\n");
 
     return houghMaximaImg;
 }
 
-//---------------------------------------findHoughMaxima--------------------------------------------------\
+//---------------------------------------findHoughMaxima--------------------------------------------------
 
+// define extended neighborhood; adjusted based on img
+#define DY MIN_R
+#define DX MIN_R
+#define DR 7
+
+// define duplicate threshold
+#define DISTANCE_THRESHOLD 10
+#define RADIUS_THRESHOLD 5
+
+// find maxima; return array of found circles
 Circle *findHoughMaxima(Accumulator *accum, int threshold, int *numCircles) {
-    // Allocate memory for circles (fixed capacity)
-    *numCircles = 0;
+    *numCircles = 0;    // circle count
+
+    // allocate memory for circle arr
     Circle *circles = (Circle *)malloc(MAX_CIRCLES * sizeof(Circle));
 
-    // Traverse the accumulator space to find local maxima
+    // traverse accumulator to find local maxima
     for (int y = 0; y < accum->max_y; y++) {
         for (int x = 0; x < accum->max_x; x++) {
             for (int r = accum->min_r; r < accum->max_r; r++) {
                 int currentVotes = accum->voteMap[y][x][r];
 
-                // Apply threshold to avoid noise
+                // apply threshold to avoid lower intensity maxima
                 if (currentVotes < threshold) {
                     continue;
                 }
 
-                // Check if currentVotes is a local maximum in an extended neighborhood
-                int isLocalMaxima = 1;
-                for (int dy = -MIN_R-5; dy <= MIN_R-5; dy++) {
-                    for (int dx = -MIN_R-5; dx <= MIN_R-5; dx++) {
-                        for (int dr = -10; dr <= 10; dr++) {
-                            // Skip the current point itself
+                // check if currentVotes is a local maximum in an extended neighborhood
+                int isLocalMaxima = 1;      // true
+                for (int dy = -DY; dy <= DY; dy++) {
+                    for (int dx = -DX; dx <= DX; dx++) {
+                        for (int dr = -DR; dr <= DR; dr++) {
+                            // skip current point itself
                             if (dy == 0 && dx == 0 && dr == 0) {
                                 continue;
                             }
 
-                            // Calculate neighbor coordinates
+                            // calculate neighbor coordinates
                             int ny = y + dy;
                             int nx = x + dx;
                             int nr = r + dr;
 
-                            // Check bounds to ensure we are within valid limits
+                            // check bounds
                             if (ny >= 0 && ny < accum->max_y && nx >= 0 && nx < accum->max_x && nr >= accum->min_r && nr < accum->max_r) {
                                 if (accum->voteMap[ny][nx][nr] > currentVotes) {
-                                    isLocalMaxima = 0;
+                                    isLocalMaxima = 0;      // false
                                     break;
                                 }
                             }
@@ -621,9 +672,9 @@ Circle *findHoughMaxima(Accumulator *accum, int threshold, int *numCircles) {
                     }
                 }
 
-                // If local maximum, add to circles list after checking for duplicates
+                // if local maxima, add to circles list after checking for duplicates
                 if (isLocalMaxima && *numCircles < MAX_CIRCLES) {
-                    // Check for duplicates based on distance from already detected circles
+                    // check for duplicates based on distance from already detected circles
                     int isDuplicate = 0;
                     for (int i = 0; i < *numCircles; i++) {
                         int dy = circles[i].y - y;
@@ -631,14 +682,14 @@ Circle *findHoughMaxima(Accumulator *accum, int threshold, int *numCircles) {
                         int dr = abs(circles[i].r - r);
                         double distance = sqrt(dx * dx + dy * dy);
 
-                        // Consider circles duplicates if centers are too close and radii are similar
-                        if (distance < 10 && dr < 5) {
+                        // consider circles duplicate if centers are too close and radii are similar
+                        if (distance < DISTANCE_THRESHOLD && dr < RADIUS_THRESHOLD) {
                             isDuplicate = 1;
                             break;
                         }
                     }
 
-                    // Add circle if it's not a duplicate
+                    // add circle if not duplicate
                     if (!isDuplicate) {
                         circles[*numCircles].y = y;
                         circles[*numCircles].x = x;
@@ -650,21 +701,26 @@ Circle *findHoughMaxima(Accumulator *accum, int threshold, int *numCircles) {
         }
     }
 
+    printf("Locate Hough Maxima Complete...\n\n");
+
     return circles;
 }
 
+// draw circles over img
 void drawCircle(Image *img, int y, int x, int r, int thickness, int color_r, int color_g, int color_b) {
-    for (int t = -thickness; t <= thickness; t++) {
+    for (int t = -thickness; t <= thickness; t++) {     // thickness
         int adjusted_radius = r + t;
 
-        // Iterate over the full circle using parametric equation of a circle
+        // iterate over circle using parametric equation of a circle
         for (int theta = 0; theta < 360; theta++) {
-            double radian = theta * PI / 180.0;
+            double radian = theta * PI / 180.0;     // convert to radian
+            // get y and x coords
             int y_circle = y + (int)(adjusted_radius * sin(radian));
             int x_circle = x + (int)(adjusted_radius * cos(radian));
 
-            // Ensure the coordinates are within image bounds
+            // ensure coords within bounds
             if (y_circle >= 0 && y_circle < img->height && x_circle >= 0 && x_circle < img->width) {
+                // color img
                 img->map[y_circle][x_circle].r = color_r;
                 img->map[y_circle][x_circle].g = color_g;
                 img->map[y_circle][x_circle].b = color_b;
