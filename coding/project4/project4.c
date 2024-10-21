@@ -14,7 +14,7 @@
 // ./main
 // 
 // -----------NOTE-----------
-//  ~15 second execution time on my machine
+//  ~10-15 second execution time on my machine
 //
 
 #include <stdio.h>
