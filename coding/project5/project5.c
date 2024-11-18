@@ -21,8 +21,15 @@
 #include <math.h>
 #include "netpbm.h"
 
+//------k means------------
 #define MAX_ITERATIONS 100
 #define TOLERANCE 1e-4
+
+//-------feature vector-----------
+#define SPACIAL_COORDINATE_WEIGHT 2.25
+
+//-----------texture energy----------
+#define TEXTURE_ENERGY_NEIGHBORHOOD 16
 
 //----------------------------------------------convolve------------------------------------------------------
 
@@ -233,32 +240,34 @@ void kMeansClustering(double ***featureVectors, int *labels, double **centroids,
 
 //-------------------------------------------------segmentation-----------------------------------------------------------------
 
-// segment the texture using law's filters and k-means clustering to classify different texture regions
 Image segmentTexture(Image inputImg, int segments) {
-    // convert the input image to matrix
+    // convert the input image to a matrix
     Matrix inputMatrix = image2Matrix(inputImg);
 
-    // apply all 25 law's filters to get 25 filtered matrices representing different texture features
+    // apply all 25 Law's filters to get 25 filtered matrices representing different texture features
     Matrix filteredMatrices[25];
     applyLawsFilters(inputMatrix, filteredMatrices);
 
     // compute texture energy for each filtered matrix to summarize texture strength in the local neighborhood
     Matrix energyMatrices[25];
     for (int i = 0; i < 25; i++) {
-        energyMatrices[i] = computeTextureEnergy(filteredMatrices[i], 8); // using 8x8 neighborhood
+        energyMatrices[i] = computeTextureEnergy(filteredMatrices[i], TEXTURE_ENERGY_NEIGHBORHOOD); // using 8x8 neighborhood
         deleteMatrix(filteredMatrices[i]); // free filtered matrix memory
     }
 
     // combine texture energy matrices into feature vectors for each pixel to represent its texture properties
-    int featureVectorSize = 25;
+    int featureVectorSize = 27; // 25 from texture energy + 2 for spatial coordinates
     double ***featureVectors = (double ***) malloc(inputMatrix.height * sizeof(double **));
     for (int i = 0; i < inputMatrix.height; i++) {
         featureVectors[i] = (double **) malloc(inputMatrix.width * sizeof(double *));
         for (int j = 0; j < inputMatrix.width; j++) {
             featureVectors[i][j] = (double *) malloc(featureVectorSize * sizeof(double));
-            for (int k = 0; k < featureVectorSize; k++) {
+            for (int k = 0; k < 25; k++) {
                 featureVectors[i][j][k] = energyMatrices[k].map[i][j];
             }
+            // add normalized spatial coordinates to the feature vector
+            featureVectors[i][j][25] = (double)i / (double)inputMatrix.height * 255 * SPACIAL_COORDINATE_WEIGHT; // normalized row coordinate * weight
+            featureVectors[i][j][26] = (double)j / (double)inputMatrix.width * 255 *  SPACIAL_COORDINATE_WEIGHT;  // normalized column coordinate * weight
         }
     }
 
@@ -285,7 +294,14 @@ Image segmentTexture(Image inputImg, int segments) {
                 case 2: setPixel(outputImg, i, j, 0, 0, 255, NO_CHANGE); break; // blue
                 case 3: setPixel(outputImg, i, j, 255, 255, 0, NO_CHANGE); break; // yellow
                 case 4: setPixel(outputImg, i, j, 0, 255, 255, NO_CHANGE); break; // cyan
-                default: setPixel(outputImg, i, j, 255, 0, 255, NO_CHANGE); break; // magenta
+                case 5: setPixel(outputImg, i, j, 255, 0, 255, NO_CHANGE); break; // magenta
+                case 6: setPixel(outputImg, i, j, 128, 0, 0, NO_CHANGE); break; // dark red
+                case 7: setPixel(outputImg, i, j, 0, 128, 0, NO_CHANGE); break; // dark green
+                case 8: setPixel(outputImg, i, j, 0, 0, 128, NO_CHANGE); break; // dark blue
+                case 9: setPixel(outputImg, i, j, 128, 128, 0, NO_CHANGE); break; // olive
+                case 10: setPixel(outputImg, i, j, 128, 0, 128, NO_CHANGE); break; // purple
+                case 11: setPixel(outputImg, i, j, 0, 128, 128, NO_CHANGE); break; // teal
+                default: setPixel(outputImg, i, j, 128, 128, 128, NO_CHANGE); break; // gray (fallback for out-of-range labels)
             }
         }
     }
@@ -315,6 +331,14 @@ Image segmentTexture(Image inputImg, int segments) {
 
 int main(int argc, const char *argv[]) {
     printf("\n");
+
+                        // num segments
+    int segments[21] = {0,// idx 0 placeholder      // img #
+                        3, 4, 5, 6, 7,              // 1-5
+                        8, 9, 10, 11, 12,           // 6-10
+                        6, 6, 6, 6, 6,              // 11-15
+                        6, 6, 6, 6, 6};             // 16-20
+
     // segment each image in the "textures" folder to process all the provided images
     for (int imgIndex = 1; imgIndex <= 20; imgIndex++) {
         char inputFilename[50];
@@ -328,7 +352,7 @@ int main(int argc, const char *argv[]) {
         Image inputImg = readImage(inputFilename);
         
         // segment the texture of the input image with the specified number of segments (clusters)
-        Image outputImg = segmentTexture(inputImg, 5);
+        Image outputImg = segmentTexture(inputImg, segments[imgIndex]);
 
         // save output segmented image to file
         writeImage(outputImg, outputFilename); // save as ppm
