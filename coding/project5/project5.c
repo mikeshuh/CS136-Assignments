@@ -21,17 +21,17 @@
 #include <math.h>
 #include "netpbm.h"
 
-//------k means------------
+//-----k means------------
 #define MAX_ITERATIONS 100
 #define TOLERANCE 1e-4
 
-//-------feature vector-----------
+//-----feature vector-----------------
 #define SPACIAL_COORDINATE_WEIGHT 2.25
 
-//-----------texture energy----------
+//-----texture energy-----------------
 #define TEXTURE_ENERGY_NEIGHBORHOOD 16
 
-//----------------------------------------------convolve------------------------------------------------------
+//-----convolve----------------------------------------------------------------------------------------------------------------
 
 // rotate matrix helper function for convolve
 Matrix createRotatedMatrix180(const Matrix *m) {
@@ -75,16 +75,16 @@ Matrix convolve(Matrix m1, Matrix m2) {
     return convolvedMatrix;
 }
 
-//--------------------------------------------Law's filtering---------------------------------------------------------------------
+//-----Law's filtering---------------------------------------------------------------------------------
 
-// define Law's 1D filters
+// define 1D Law's filters
 const double L5[5] = {1, 4, 6, 4, 1};
 const double E5[5] = {-1, -2, 0, 2, 1};
 const double S5[5] = {-1, 0, 2, 0, -1};
 const double R5[5] = {1, -4, 6, -4, 1};
 const double W5[5] = {-1, 2, 0, -2, 1};
 
-// create a 5x5 Law's filter from two 1d vectors by performing an outer product between the two vectors
+// create a 5x5 Law's filter from outer product between two 1D vectors
 Matrix createLawsFilter(const double *vector1, const double *vector2) {
     Matrix filter = createMatrix(5, 5);
     for (int i = 0; i < 5; i++) {
@@ -95,13 +95,13 @@ Matrix createLawsFilter(const double *vector1, const double *vector2) {
     return filter;
 }
 
-// apply all 25 law's filters to the input image to extract different texture features
+// apply all 25 law's filters to input image to extract different texture features
 void applyLawsFilters(Matrix inputMatrix, Matrix *filteredMatrices) {
     const double *filters[5] = {L5, E5, S5, R5, W5};
     int index = 0;
     for (int i = 0; i < 5; i++) {
         for (int j = 0; j < 5; j++) {
-            Matrix filter = createLawsFilter(filters[i], filters[j]); // create a 5x5 filter by combining two 1d vectors
+            Matrix filter = createLawsFilter(filters[i], filters[j]); // create 5x5 filter by combining two 1d vectors
             filteredMatrices[index] = convolve(inputMatrix, filter);
             deleteMatrix(filter);
             index++;
@@ -115,22 +115,24 @@ Matrix computeTextureEnergy(Matrix filteredMatrix, int neighborhoodSize) {
     int offset = neighborhoodSize / 2;
     double minVal = DBL_MAX, maxVal = -DBL_MAX;
 
-    // compute the sum of absolute values within the neighborhood and find min and max values to normalize the texture energy
+    // compute sum of absolute values within neighborhood and find min and max values to normalize texture energy
     for (int i = offset; i < filteredMatrix.height - offset; i++) {
         for (int j = offset; j < filteredMatrix.width - offset; j++) {
             double sum = 0;
             for (int m = -offset; m <= offset; m++) {
                 for (int n = -offset; n <= offset; n++) {
-                    sum += fabs(filteredMatrix.map[i + m][j + n]);
+                    sum += fabs(filteredMatrix.map[i + m][j + n]); // fabs = absolute val
                 }
             }
             energyMatrix.map[i][j] = sum;
+
+            // get min and max vals for normalization
             if (sum < minVal) minVal = sum;
             if (sum > maxVal) maxVal = sum;
         }
     }
 
-    // normalize the energy matrix to the range [0, 255] for consistent intensity representation
+    // normalize energy matrix to range [0, 255]
     for (int i = 0; i < energyMatrix.height; i++) {
         for (int j = 0; j < energyMatrix.width; j++) {
             energyMatrix.map[i][j] = ((energyMatrix.map[i][j] - minVal) / (maxVal - minVal)) * 255.0;
@@ -142,7 +144,7 @@ Matrix computeTextureEnergy(Matrix filteredMatrix, int neighborhoodSize) {
 
 //----------------------------------------k means-------------------------------------------------------------------
 
-// function to compute euclidean distance between two feature vectors, used to find the closest cluster centroid
+// compute euclidean distance between two feature vectors
 double euclideanDistance(double *vec1, double *vec2, int size) {
     double sum = 0;
     for (int i = 0; i < size; i++) {
@@ -151,7 +153,7 @@ double euclideanDistance(double *vec1, double *vec2, int size) {
     return sqrt(sum);
 }
 
-// function to initialize cluster centroids randomly but ensure they are distinct from each other
+// initialize cluster centroids randomly
 void initializeCentroids(double **centroids, double ***featureVectors, int height, int width, int segments, int featureVectorSize) {
     for (int k = 0; k < segments; k++) {
         int distinct = 0;
@@ -162,7 +164,7 @@ void initializeCentroids(double **centroids, double ***featureVectors, int heigh
             for (int f = 0; f < featureVectorSize; f++) {
                 centroids[k][f] = featureVectors[i][j][f];
             }
-            // ensure the centroids are distinct from previously initialized centroids by checking euclidean distance
+            // ensure centroids are distinct from previous centroids
             for (int m = 0; m < k; m++) {
                 if (euclideanDistance(centroids[m], centroids[k], featureVectorSize) < TOLERANCE) {
                     distinct = 0;
@@ -173,14 +175,14 @@ void initializeCentroids(double **centroids, double ***featureVectors, int heigh
     }
 }
 
-// k-means clustering implementation to group pixels with similar texture features
+// k-means clustering; group pixels with similar texture features
 void kMeansClustering(double ***featureVectors, int *labels, double **centroids, int height, int width, int segments, int featureVectorSize) {
     int changed;
     int iterations = 0;
     do {
         changed = 0;
 
-        // assign each pixel to the closest centroid by calculating the distance to all centroids
+        // assign each pixel to closest centroid by calculating distance to all centroids
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                 double minDistance = euclideanDistance(featureVectors[i][j], centroids[0], featureVectorSize);
@@ -199,7 +201,7 @@ void kMeansClustering(double ***featureVectors, int *labels, double **centroids,
             }
         }
 
-        // update centroids by calculating the mean of all feature vectors assigned to each cluster
+        // update centroids by calculating mean of all feature vectors assigned to each cluster
         double **newCentroids = (double **) malloc(segments * sizeof(double *));
         int *count = (int *) calloc(segments, sizeof(int));
         for (int k = 0; k < segments; k++) {
@@ -224,7 +226,7 @@ void kMeansClustering(double ***featureVectors, int *labels, double **centroids,
             }
         }
 
-        // replace old centroids with new centroids for the next iteration of k-means
+        // replace old centroids with new centroids for next iteration of k-means
         for (int k = 0; k < segments; k++) {
             for (int f = 0; f < featureVectorSize; f++) {
                 centroids[k][f] = newCentroids[k][f];
@@ -238,8 +240,9 @@ void kMeansClustering(double ***featureVectors, int *labels, double **centroids,
     } while (changed && iterations < MAX_ITERATIONS);
 }
 
-//-------------------------------------------------segmentation-----------------------------------------------------------------
+//-----segmentation----------------------------------------------------------------------------------------------------------
 
+// segment image by texture
 Image segmentTexture(Image inputImg, int segments) {
     // convert the input image to a matrix
     Matrix inputMatrix = image2Matrix(inputImg);
@@ -248,15 +251,15 @@ Image segmentTexture(Image inputImg, int segments) {
     Matrix filteredMatrices[25];
     applyLawsFilters(inputMatrix, filteredMatrices);
 
-    // compute texture energy for each filtered matrix to summarize texture strength in the local neighborhood
+    // compute texture energy for each filtered matrix
     Matrix energyMatrices[25];
     for (int i = 0; i < 25; i++) {
-        energyMatrices[i] = computeTextureEnergy(filteredMatrices[i], TEXTURE_ENERGY_NEIGHBORHOOD); // using 8x8 neighborhood
+        energyMatrices[i] = computeTextureEnergy(filteredMatrices[i], TEXTURE_ENERGY_NEIGHBORHOOD); // using defined neighborhood size
         deleteMatrix(filteredMatrices[i]); // free filtered matrix memory
     }
 
     // combine texture energy matrices into feature vectors for each pixel to represent its texture properties
-    int featureVectorSize = 27; // 25 from texture energy + 2 for spatial coordinates
+    int featureVectorSize = 27; // 25 from texture energy + 2 for spatial coordinates (also normalized to values [0, 255], then multiplied by spacial coord weight)
     double ***featureVectors = (double ***) malloc(inputMatrix.height * sizeof(double **));
     for (int i = 0; i < inputMatrix.height; i++) {
         featureVectors[i] = (double **) malloc(inputMatrix.width * sizeof(double *));
@@ -265,20 +268,20 @@ Image segmentTexture(Image inputImg, int segments) {
             for (int k = 0; k < 25; k++) {
                 featureVectors[i][j][k] = energyMatrices[k].map[i][j];
             }
-            // add normalized spatial coordinates to the feature vector
+            // add normalized spatial coordinates to feature vector
             featureVectors[i][j][25] = (double)i / (double)inputMatrix.height * 255 * SPACIAL_COORDINATE_WEIGHT; // normalized row coordinate * weight
             featureVectors[i][j][26] = (double)j / (double)inputMatrix.width * 255 *  SPACIAL_COORDINATE_WEIGHT;  // normalized column coordinate * weight
         }
     }
 
-    // initialize centroids for k-means clustering using distinct feature vectors
+    // initialize centroids for k-means clustering using feature vectors
     double **centroids = (double **) malloc(segments * sizeof(double *));
     for (int k = 0; k < segments; k++) {
         centroids[k] = (double *) malloc(featureVectorSize * sizeof(double));
     }
     initializeCentroids(centroids, featureVectors, inputMatrix.height, inputMatrix.width, segments, featureVectorSize);
 
-    // perform k-means clustering to group pixels into different texture segments
+    // perform k-means clustering
     int *labels = (int *) malloc(inputMatrix.height * inputMatrix.width * sizeof(int));
     kMeansClustering(featureVectors, labels, centroids, inputMatrix.height, inputMatrix.width, segments, featureVectorSize);
 
@@ -287,7 +290,7 @@ Image segmentTexture(Image inputImg, int segments) {
     for (int i = 0; i < inputImg.height; i++) {
         for (int j = 0; j < inputImg.width; j++) {
             int label = labels[i * inputImg.width + j];
-            // assign a unique color to each cluster to visualize the segmentation results
+            // assign unique color to each cluster to visualize segmentation results
             switch (label) {
                 case 0: setPixel(outputImg, i, j, 255, 0, 0, NO_CHANGE); break; // red
                 case 1: setPixel(outputImg, i, j, 0, 255, 0, NO_CHANGE); break; // green
@@ -306,7 +309,7 @@ Image segmentTexture(Image inputImg, int segments) {
         }
     }
 
-    // free memory allocated for energy matrices, feature vectors, centroids, and labels to avoid memory leaks
+    // free memory allocated for energy matrices, feature vectors, centroids, and labels
     for (int i = 0; i < 25; i++) {
         deleteMatrix(energyMatrices[i]);
     }
@@ -339,25 +342,25 @@ int main(int argc, const char *argv[]) {
                         6, 6, 6, 6, 6,              // 11-15
                         6, 6, 6, 6, 6};             // 16-20
 
-    // segment each image in the "textures" folder to process all the provided images
+    // segment each image in textures folder; process all provided images
     for (int imgIndex = 1; imgIndex <= 20; imgIndex++) {
         char inputFilename[50];
         char outputFilename[50];
 
-        // prepare input and output filenames for reading and saving each image
+        // prepare input and output filenames
         snprintf(inputFilename, sizeof(inputFilename), "textures/%d.pgm", imgIndex);
         snprintf(outputFilename, sizeof(outputFilename), "segmented_textures/output_%d.ppm", imgIndex);
 
         // load input image from file
         Image inputImg = readImage(inputFilename);
         
-        // segment the texture of the input image with the specified number of segments (clusters)
+        // segment input image with specified number of segments (clusters)
         Image outputImg = segmentTexture(inputImg, segments[imgIndex]);
 
         // save output segmented image to file
         writeImage(outputImg, outputFilename); // save as ppm
 
-        // clean up memory by deleting input and output images
+        // free memory
         deleteImage(inputImg);
         deleteImage(outputImg);
 
